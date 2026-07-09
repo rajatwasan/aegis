@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+*.egg-info/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+.aegis/
+audit.jsonl
+*.key
+run.log
+loop.out

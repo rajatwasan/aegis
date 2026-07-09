@@ -1,0 +1,25 @@
+# PROGRESS.md — Aegis build log
+
+Work proceeds milestone by milestone per PROMPT.md. Check boxes only when the
+milestone's acceptance criteria pass locally.
+
+## Milestones
+
+- [x] M0 — Scaffold: layout, Makefile, .venv, foundry init, CI authored, README skeleton; `make test` trivially green
+- [ ] M1 — Contracts core: ComplianceRegistry, GuardianModule, GuardedToken, GuardedAsset1155, AuditAnchor; forge tests green, fmt clean
+- [ ] M2 — Policy engine: evaluate() with YAML rules, default policy, property tests, 100% branch coverage on evaluator
+- [ ] M3 — Audit log: hash-chained JSONL, Ed25519 signatures, MerkleTree with proofs, tamper test
+- [ ] M4 — Approval service: FastAPI HITL, idempotency, TTL expiry, dual-control flag, guardian EIP-712 signer, HTML approval page
+- [ ] M5 — Agent: LangGraph graph, typed tools, MockLLM/AnthropicLLM, anvil integration test (5 transfers + freeze deny)
+- [ ] M6 — Adversarial evals: 50+ injection corpus, gullible-mode harness, report with bypass rate 0
+- [ ] M7 — MCP server: stdio server with 4 tools, protocol smoke test
+- [ ] M8 — Verify CLI, demo.sh, docs (architecture, threat model, README); `make demo` exits 0
+
+## Session notes
+
+(appended per milestone)
+
+**M0 (2026-07-09):** Scaffolded full layout, Makefile (setup/fmt/lint/test/demo),
+.venv with pinned stack frozen to requirements.lock, foundry init + OZ pinned to
+v5.1.0 (ADR 001 — local forge 0.2.0 panics on OZ v5.6.1's `osaka` evm_version),
+CI workflow authored. `make test` green (forge sample + pytest smoke).

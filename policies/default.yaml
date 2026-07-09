@@ -1,0 +1,5 @@
+# Aegis default policy. Evaluated top-to-bottom; first matching rule wins.
+# Fully specified in M2.
+version: 1
+rules: []
+default: escalate

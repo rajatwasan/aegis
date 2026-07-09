@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Format check
+        run: forge fmt --check
+        working-directory: contracts
+      - name: Tests
+        run: forge test -vvv
+        working-directory: contracts
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -e python/
+      - name: Lint
+        run: |
+          ruff check python/
+          ruff format --check python/
+      - name: Tests
+        run: pytest python/tests -q
