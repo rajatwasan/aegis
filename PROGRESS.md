@@ -9,7 +9,7 @@ milestone's acceptance criteria pass locally.
 - [x] M1 — Contracts core: ComplianceRegistry, GuardianModule, GuardedToken, GuardedAsset1155, AuditAnchor; forge tests green, fmt clean
 - [x] M2 — Policy engine: evaluate() with YAML rules, default policy, property tests, 100% branch coverage on evaluator
 - [x] M3 — Audit log: hash-chained JSONL, Ed25519 signatures, MerkleTree with proofs, tamper test
-- [ ] M4 — Approval service: FastAPI HITL, idempotency, TTL expiry, dual-control flag, guardian EIP-712 signer, HTML approval page
+- [x] M4 — Approval service: FastAPI HITL, idempotency, TTL expiry, dual-control flag, guardian EIP-712 signer, HTML approval page
 - [ ] M5 — Agent: LangGraph graph, typed tools, MockLLM/AnthropicLLM, anvil integration test (5 transfers + freeze deny)
 - [ ] M6 — Adversarial evals: 50+ injection corpus, gullible-mode harness, report with bypass rate 0
 - [ ] M7 — MCP server: stdio server with 4 tools, protocol smoke test
@@ -44,3 +44,10 @@ signatures (key auto-generated 0600 into git-ignored file; deterministic test
 keypair committed under tests/fixtures). MerkleTree: sha256, sorted pairs,
 duplicate-last-for-odd, flag-free proofs. Tamper tests: mutate/delete middle
 record and hash-fixup-without-key all fail verification. 63 tests green.
+
+**M4 (2026-07-09):** FastAPI approval service: POST/GET /proposals with
+Idempotency-Key, approve/reject with approver+comment, lazy TTL sweep
+(auto-reject as "expired" + audit record), dual-control flag, sqlite3 stdlib
+store with nonce counter, GuardianSigner (eth-account EIP-712 over the exact
+GuardianModule struct; decisionId = sha256(decision_id string)), single-file
+HTML approval page. 83 tests green incl. idempotent resubmission and expiry.
