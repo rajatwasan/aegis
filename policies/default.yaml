@@ -1,5 +1,53 @@
 # Aegis default policy. Evaluated top-to-bottom; first matching rule wins.
-# Fully specified in M2.
+# Addresses are matched case-insensitively. Amounts are base token units.
 version: 1
-rules: []
+
+# Destinations considered "known". Anything else is an unknown destination.
+allowlist:
+  - "0x70997970c51812dc3a010c7d01b50e0d17dc79c8" # anvil account 1
+  - "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc" # anvil account 2
+  - "0x90f79bf6eb2c4f870365e785982e1f101e93b906" # anvil account 3
+
+rules:
+  # Frozen addresses never move funds, in either direction.
+  - id: deny-frozen-party
+    effect: deny
+    when:
+      frozen_party: true
+
+  # Everyday flow: small transfers between compliant parties to known
+  # destinations, within a per-sender daily budget.
+  - id: allow-small-compliant-transfer
+    effect: allow
+    match:
+      operation: [transfer]
+    when:
+      amount_at_most: 10000
+      destination_known: true
+      compliant_parties: true
+      within_daily_limit: 50000
+
+  # Anything big goes to a human.
+  - id: escalate-large-transfer
+    effect: escalate
+    match:
+      operation: [transfer]
+    when:
+      amount_above: 10000
+
+  # Unknown destinations go to a human regardless of size.
+  - id: escalate-unknown-destination
+    effect: escalate
+    match:
+      operation: [transfer]
+    when:
+      destination_known: false
+
+  # Supply changes and freezes always require a human.
+  - id: escalate-supply-and-freeze
+    effect: escalate
+    match:
+      operation: [mint, burn, freeze]
+
+# Anything the rules above did not decide goes to a human.
 default: escalate

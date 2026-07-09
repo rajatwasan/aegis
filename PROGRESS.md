@@ -7,7 +7,7 @@ milestone's acceptance criteria pass locally.
 
 - [x] M0 — Scaffold: layout, Makefile, .venv, foundry init, CI authored, README skeleton; `make test` trivially green
 - [x] M1 — Contracts core: ComplianceRegistry, GuardianModule, GuardedToken, GuardedAsset1155, AuditAnchor; forge tests green, fmt clean
-- [ ] M2 — Policy engine: evaluate() with YAML rules, default policy, property tests, 100% branch coverage on evaluator
+- [x] M2 — Policy engine: evaluate() with YAML rules, default policy, property tests, 100% branch coverage on evaluator
 - [ ] M3 — Audit log: hash-chained JSONL, Ed25519 signatures, MerkleTree with proofs, tamper test
 - [ ] M4 — Approval service: FastAPI HITL, idempotency, TTL expiry, dual-control flag, guardian EIP-712 signer, HTML approval page
 - [ ] M5 — Agent: LangGraph graph, typed tools, MockLLM/AnthropicLLM, anvil integration test (5 transfers + freeze deny)
@@ -31,3 +31,10 @@ transfer/mint/burn), GuardedAsset1155 (per-class thresholds), AuditAnchor.
 50 forge tests green incl. fuzz + invariant (no gated transfer without a
 consumed authorization); forge fmt clean. Design choice: frozen blocks even
 guardian-authorized moves (must unfreeze first).
+
+**M2 (2026-07-09):** Pure evaluate(proposal, context, policy) -> Decision with
+frozen pydantic models; YAML rules with structural match (operation/token/
+asset class) + predicates (amount ceiling/floor, allowlist, daily rate limit,
+compliance, frozen); first-match-wins with explicit default. Default policy
+ships allow-small/escalate-large-or-unknown/deny-frozen. 31 tests green;
+100% branch coverage on aegis/policy/engine.py verified with pytest-cov.
