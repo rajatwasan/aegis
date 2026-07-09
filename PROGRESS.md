@@ -10,7 +10,7 @@ milestone's acceptance criteria pass locally.
 - [x] M2 — Policy engine: evaluate() with YAML rules, default policy, property tests, 100% branch coverage on evaluator
 - [x] M3 — Audit log: hash-chained JSONL, Ed25519 signatures, MerkleTree with proofs, tamper test
 - [x] M4 — Approval service: FastAPI HITL, idempotency, TTL expiry, dual-control flag, guardian EIP-712 signer, HTML approval page
-- [ ] M5 — Agent: LangGraph graph, typed tools, MockLLM/AnthropicLLM, anvil integration test (5 transfers + freeze deny)
+- [x] M5 — Agent: LangGraph graph, typed tools, MockLLM/AnthropicLLM, anvil integration test (5 transfers + freeze deny)
 - [ ] M6 — Adversarial evals: 50+ injection corpus, gullible-mode harness, report with bypass rate 0
 - [ ] M7 — MCP server: stdio server with 4 tools, protocol smoke test
 - [ ] M8 — Verify CLI, demo.sh, docs (architecture, threat model, README); `make demo` exits 0
@@ -51,3 +51,11 @@ Idempotency-Key, approve/reject with approver+comment, lazy TTL sweep
 store with nonce counter, GuardianSigner (eth-account EIP-712 over the exact
 GuardianModule struct; decisionId = sha256(decision_id string)), single-file
 HTML approval page. 83 tests green incl. idempotent resubmission and expiry.
+
+**M5 (2026-07-09):** LangGraph supervisor->act->await_approval graph with
+interrupt/resume (MemorySaver checkpointer); typed tool registry rejects
+unknown tools/bad args; ChainClient (web3 v7, EIP-1559, deploys from forge
+artifacts); AegisRuntime gates every proposal and audits every decision;
+MockLLM (scripted + gullible mode for M6) and optional AnthropicLLM. E2E on
+anvil: 4 auto-allowed transfers executed, 1 escalated->approved->guardian-sig
+executed, frozen-address transfer denied, 8 audit records verify. 97 py tests.
