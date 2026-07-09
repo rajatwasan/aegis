@@ -8,7 +8,7 @@ milestone's acceptance criteria pass locally.
 - [x] M0 — Scaffold: layout, Makefile, .venv, foundry init, CI authored, README skeleton; `make test` trivially green
 - [x] M1 — Contracts core: ComplianceRegistry, GuardianModule, GuardedToken, GuardedAsset1155, AuditAnchor; forge tests green, fmt clean
 - [x] M2 — Policy engine: evaluate() with YAML rules, default policy, property tests, 100% branch coverage on evaluator
-- [ ] M3 — Audit log: hash-chained JSONL, Ed25519 signatures, MerkleTree with proofs, tamper test
+- [x] M3 — Audit log: hash-chained JSONL, Ed25519 signatures, MerkleTree with proofs, tamper test
 - [ ] M4 — Approval service: FastAPI HITL, idempotency, TTL expiry, dual-control flag, guardian EIP-712 signer, HTML approval page
 - [ ] M5 — Agent: LangGraph graph, typed tools, MockLLM/AnthropicLLM, anvil integration test (5 transfers + freeze deny)
 - [ ] M6 — Adversarial evals: 50+ injection corpus, gullible-mode harness, report with bypass rate 0
@@ -38,3 +38,9 @@ asset class) + predicates (amount ceiling/floor, allowlist, daily rate limit,
 compliance, frozen); first-match-wins with explicit default. Default policy
 ships allow-small/escalate-large-or-unknown/deny-frozen. 31 tests green;
 100% branch coverage on aegis/policy/engine.py verified with pytest-cov.
+
+**M3 (2026-07-09):** Canonical-JSON hash-chained JSONL AuditLog with Ed25519
+signatures (key auto-generated 0600 into git-ignored file; deterministic test
+keypair committed under tests/fixtures). MerkleTree: sha256, sorted pairs,
+duplicate-last-for-odd, flag-free proofs. Tamper tests: mutate/delete middle
+record and hash-fixup-without-key all fail verification. 63 tests green.
