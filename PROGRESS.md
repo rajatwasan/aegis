@@ -6,7 +6,7 @@ milestone's acceptance criteria pass locally.
 ## Milestones
 
 - [x] M0 — Scaffold: layout, Makefile, .venv, foundry init, CI authored, README skeleton; `make test` trivially green
-- [ ] M1 — Contracts core: ComplianceRegistry, GuardianModule, GuardedToken, GuardedAsset1155, AuditAnchor; forge tests green, fmt clean
+- [x] M1 — Contracts core: ComplianceRegistry, GuardianModule, GuardedToken, GuardedAsset1155, AuditAnchor; forge tests green, fmt clean
 - [ ] M2 — Policy engine: evaluate() with YAML rules, default policy, property tests, 100% branch coverage on evaluator
 - [ ] M3 — Audit log: hash-chained JSONL, Ed25519 signatures, MerkleTree with proofs, tamper test
 - [ ] M4 — Approval service: FastAPI HITL, idempotency, TTL expiry, dual-control flag, guardian EIP-712 signer, HTML approval page
@@ -23,3 +23,11 @@ milestone's acceptance criteria pass locally.
 .venv with pinned stack frozen to requirements.lock, foundry init + OZ pinned to
 v5.1.0 (ADR 001 — local forge 0.2.0 panics on OZ v5.6.1's `osaka` evm_version),
 CI workflow authored. `make test` green (forge sample + pytest smoke).
+
+**M1 (2026-07-09):** ComplianceRegistry (expiring claims), GuardianModule
+(EIP-712 "AegisGuardian"/"1", single-use decisionIds, rotation, freeze via
+authorization), GuardedToken (threshold + compliance gates, authorized
+transfer/mint/burn), GuardedAsset1155 (per-class thresholds), AuditAnchor.
+50 forge tests green incl. fuzz + invariant (no gated transfer without a
+consumed authorization); forge fmt clean. Design choice: frozen blocks even
+guardian-authorized moves (must unfreeze first).
