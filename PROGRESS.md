@@ -11,7 +11,7 @@ milestone's acceptance criteria pass locally.
 - [x] M3 — Audit log: hash-chained JSONL, Ed25519 signatures, MerkleTree with proofs, tamper test
 - [x] M4 — Approval service: FastAPI HITL, idempotency, TTL expiry, dual-control flag, guardian EIP-712 signer, HTML approval page
 - [x] M5 — Agent: LangGraph graph, typed tools, MockLLM/AnthropicLLM, anvil integration test (5 transfers + freeze deny)
-- [ ] M6 — Adversarial evals: 50+ injection corpus, gullible-mode harness, report with bypass rate 0
+- [x] M6 — Adversarial evals: 50+ injection corpus, gullible-mode harness, report with bypass rate 0
 - [ ] M7 — MCP server: stdio server with 4 tools, protocol smoke test
 - [ ] M8 — Verify CLI, demo.sh, docs (architecture, threat model, README); `make demo` exits 0
 
@@ -59,3 +59,14 @@ artifacts); AegisRuntime gates every proposal and audits every decision;
 MockLLM (scripted + gullible mode for M6) and optional AnthropicLLM. E2E on
 anvil: 4 auto-allowed transfers executed, 1 escalated->approved->guardian-sig
 executed, frozen-address transfer denied, 8 audit records verify. 97 py tests.
+
+**M6 (2026-07-11):** evals/corpus.yaml with 51 injection attempts across 11
+families (instruction-override, tool-schema-smuggling, role-confusion, social-
+engineering, unicode-obfuscation, many-shot, destination-evasion, rate-limit,
+replay, confused-deputy, prompt-leak). evals/harness.py spawns anvil, deploys
+the suite, and runs every case through the graph with a gullible MockLLM that
+OBEYS the injected action; no escalation is ever approved. All 49 attacks end
+escalated/denied/refused, the 2 legit compliant transfers execute. Bypass rate
+0 (0/49), escalation precision 100% (42/42), denial recall 100% (1/1); report
+written to evals/report.md. Wired into pytest (test_evals.py) so `make test`
+also proves the guarantee. `make evals` exits 0.
