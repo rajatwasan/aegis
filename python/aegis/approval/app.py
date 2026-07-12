@@ -20,6 +20,7 @@ from aegis.approval.page import APPROVAL_PAGE
 from aegis.approval.signer import GuardianSigner, authorization_to_json, build_authorization
 from aegis.approval.store import ProposalStore
 from aegis.audit import AuditLog, AuditSigner
+from aegis.events import EmittingAuditLog, EventBus
 from aegis.policy import load_policy
 
 
@@ -41,7 +42,7 @@ class ActionIn(BaseModel):
     comment: str = ""
 
 
-def create_app(config: ApprovalConfig | None = None) -> FastAPI:
+def create_app(config: ApprovalConfig | None = None, bus: EventBus | None = None) -> FastAPI:
     config = config or ApprovalConfig.from_env()
     config.ensure_dirs()
 
@@ -49,14 +50,23 @@ def create_app(config: ApprovalConfig | None = None) -> FastAPI:
     app.state.config = config
     app.state.store = ProposalStore(config.db_path)
     app.state.signer = GuardianSigner(config.guardian_key, config.chain_id)
-    app.state.audit = AuditLog(
-        config.audit_log_path, AuditSigner.load_or_create(config.audit_key_file)
+    audit_signer = AuditSigner.load_or_create(config.audit_key_file)
+    app.state.audit = (
+        EmittingAuditLog(config.audit_log_path, audit_signer, bus)
+        if bus is not None
+        else AuditLog(config.audit_log_path, audit_signer)
     )
     app.state.policy = load_policy(config.policy_path)
+    app.state.bus = bus
+
+    def _emit(event_type: str, row: dict[str, Any]) -> None:
+        if bus is not None:
+            bus.publish(event_type, _public(row))
 
     def sweep() -> None:
         for row in app.state.store.expire_older_than(time.time()):
             _write_audit(row, {"action": "expired", "approver": None, "comment": "ttl"})
+            _emit("proposal.expired", row)
 
     def _write_audit(row: dict[str, Any], human_action: dict[str, Any]) -> None:
         app.state.audit.append(
@@ -96,6 +106,8 @@ def create_app(config: ApprovalConfig | None = None) -> FastAPI:
         )
         if not created:
             response.status_code = 200
+        else:
+            _emit("proposal.created", row)
         return _public(row)
 
     @app.get("/proposals")
@@ -152,6 +164,7 @@ def create_app(config: ApprovalConfig | None = None) -> FastAPI:
             nonce=nonce,
         )
         _write_audit(row, resolution)
+        _emit("proposal.approved", row)
         return _public(row)
 
     @app.post("/proposals/{decision_id}/reject")
@@ -161,6 +174,7 @@ def create_app(config: ApprovalConfig | None = None) -> FastAPI:
         resolution = {"action": "rejected", "approver": body.approver, "comment": body.comment}
         row = app.state.store.resolve(decision_id, st.REJECTED, resolution)
         _write_audit(row, resolution)
+        _emit("proposal.rejected", row)
         return _public(row)
 
     def _pending_or_409(decision_id: str) -> dict[str, Any]:

@@ -95,3 +95,27 @@ table), threat-model.md (assets, boundaries, 12-row STRIDE table, malicious-LLM
 forge tests + 104 py tests; ruff + forge fmt clean.
 
 ALL_MILESTONES_COMPLETE
+
+## Frontend milestones (FRONTEND.md)
+
+- [x] F0 — Backend API surface: CORS, event bus + SSE, decisions/audit/policy/metrics endpoints, /agent/run
+- [ ] F1 — Frontend scaffold: Vite + React 18 + TS strict, typed client, Makefile + CI wiring
+- [ ] F2 — Approvals queue
+- [ ] F3 — Activity feed + Audit explorer
+- [ ] F4 — Command console + dashboard
+- [ ] F5 — E2E, docs, polish
+
+## Frontend session notes
+
+**F0 (2026-07-12):** EventBus (thread-safe pub/sub -> asyncio SSE consumers) in
+aegis.events; approval service now emits proposal.* events and decision.recorded
+via EmittingAuditLog (routes unchanged). Anchor/verify refactored from the CLI
+into aegis.anchoring (CLI output byte-identical). New aegis.api package:
+GET /events (SSE), /decisions, /audit/records[/{id}], /audit/verify/{id},
+/policy (yaml + hash + human-readable rules), /metrics (effects, escalation
+rate, pending, last anchor, blocked injections from evals/report.md),
+POST /anchor (emits anchor.created), POST /agent/run (canned MockLLM plans,
+agent.step events, poll-resume on approval), GET /agent/instructions.
+ADR 002 records the spec->code mapping. 24 new tests incl. a real-uvicorn SSE
+consumption test; suite 50 forge + 128 py, ruff clean, zero existing tests
+modified.
