@@ -193,6 +193,44 @@ describe("ApprovalsPage", () => {
     expect(screen.getByTestId("proposal-dec-1")).toBeInTheDocument();
   });
 
+  it("supports j/k row navigation and a-to-approve from the keyboard", async () => {
+    const now = Date.now() / 1000;
+    const approvals: unknown[] = [];
+    server.use(
+      http.get(`${API_URL}/proposals`, () =>
+        HttpResponse.json([
+          makeProposal({ decision_id: "first", created_at: now - 10 }),
+          makeProposal({ decision_id: "second", created_at: now - 60 }),
+        ]),
+      ),
+      http.post(`${API_URL}/proposals/:id/approve`, async ({ request, params }) => {
+        approvals.push(await request.json());
+        return HttpResponse.json(
+          makeProposal({ decision_id: String(params.id), status: "approved" }),
+        );
+      }),
+    );
+    renderApprovals();
+    const user = userEvent.setup();
+
+    const first = await screen.findByTestId("proposal-first");
+    first.focus();
+    await user.keyboard("j");
+    expect(screen.getByTestId("proposal-second")).toHaveFocus();
+    await user.keyboard("k");
+    expect(first).toHaveFocus();
+
+    await user.keyboard("a"); // opens the drawer armed to approve
+    const drawer = await screen.findByRole("dialog");
+    const comment = within(drawer).getByLabelText("comment (required)");
+    await waitFor(() => expect(comment).toHaveFocus());
+    expect(within(drawer).getByText(/enter .* to approve/)).toBeInTheDocument();
+
+    await user.keyboard("ship it{Enter}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(approvals).toEqual([{ approver: "casey", comment: "ship it" }]);
+  });
+
   it("requires an approver identity before acting", async () => {
     renderApp(<App />, { route: "/approvals" }); // no localStorage name
     const user = userEvent.setup();

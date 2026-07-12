@@ -30,10 +30,15 @@ flowchart TB
         MCP["MCP stdio server<br/>(same gate for MCP clients)"]
     end
 
-    subgraph Approval["Approval service (guardian custody)"]
-        API["FastAPI HITL API<br/>+ single-file HTML page"]
+    subgraph Approval["Approval service + console API (guardian custody)"]
+        API["FastAPI HITL API<br/>+ read models, /metrics, /policy"]
+        SSE["Event bus + SSE<br/>GET /events"]
         DB[("SQLite proposals")]
         GK["Guardian key<br/>EIP-712 signer"]
+    end
+
+    subgraph Console["Guardian Console (browser)"]
+        UI["React + TanStack Query<br/>approvals - activity - audit - console"]
     end
 
     subgraph Chain["Local chain (anvil)"]
@@ -53,7 +58,10 @@ flowchart TB
     RT --> AUDIT
     API --> DB
     API -->|"on approve: sign Authorization"| GK
-    HUMAN -->|"approve / reject"| API
+    API --> SSE
+    SSE -->|"proposal.* decision.recorded<br/>anchor.created agent.step"| UI
+    UI -->|"typed REST client"| API
+    HUMAN -->|"approve / reject"| UI
     RT -->|"resume: transferWithAuthorization(auth, sig)"| TOKEN
     TOKEN --> REG
     AUDIT -->|"anchor Merkle root"| ANCHOR
@@ -80,6 +88,19 @@ flowchart TB
   the actual call. `AuditAnchor` stores Merkle roots of audit batches.
 - **MCP server** — a stdio server exposing the runtime to any MCP client through
   the *same* gate, so there is no privileged side-door.
+- **Console API + event bus** — `aegis.api` extends the approval service (one
+  process, one store, one audit log) with read models (`/decisions`,
+  `/audit/records`, `/audit/verify/{id}`, `/policy`, `/metrics`,
+  `/compliance/{address}`), `POST /agent/run` for keyless canned agent runs,
+  and an in-process event bus streamed to the browser as SSE (`GET /events`):
+  `proposal.*`, `decision.recorded`, `anchor.created`, `agent.step`.
+- **Guardian Console** (`frontend/`) — the human control surface: a typed
+  OpenAPI client for every read/write, TanStack Query caches invalidated by
+  the SSE stream (no polling), and screens for the approvals queue, live
+  activity, audit chain + Merkle verification, policy, and a command console
+  that shows the whole instruct → escalate → approve → execute loop on one
+  screen. The browser holds no keys; approving is an authenticated intent the
+  service turns into a guardian signature server-side.
 
 ## Decision sequence
 

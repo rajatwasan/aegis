@@ -103,7 +103,7 @@ ALL_MILESTONES_COMPLETE
 - [x] F2 — Approvals queue
 - [x] F3 — Activity feed + Audit explorer
 - [x] F4 — Command console + dashboard
-- [ ] F5 — E2E, docs, polish
+- [x] F5 — E2E, docs, polish
 
 ## Frontend session notes
 
@@ -171,3 +171,20 @@ in the status color language, last-anchor panel with root + tx. 8 new tests
 (chips, run post + step stream, escalation inline-approve loop, 400 surface,
 stat cards, effect bar, anchor, cold start); Shell tests rescoped to the
 status bar now that / renders the dashboard. Suite 50 forge + 131 py + 44 fe.
+
+**F5 (2026-07-12):** Keyboard support on the approvals queue: j/k walk rows,
+a/r open the drawer armed with an intent (comment autofocused, Enter acts,
+Shift+Enter newline); global :focus-visible already covers every actionable
+element. Playwright smoke (`make e2e`, npm script `e2e`): webServer boots
+scripts/dev-stack.sh (anvil + deploy + API + vite, torn down by Playwright),
+drives canned instruction -> streamed steps -> escalation -> drawer -> inline
+approve -> "run complete" -> POST /anchor -> audit verify shows PROOF OK ->
+dashboard; local Chrome via channel (no browser downloads), passes in ~7s and
+captures the four README screenshots into docs/screenshots/. Vitest scoped to
+src/ so e2e stays Playwright's. README: quickstart gains frontend-setup +
+make dev, new Guardian Console section with screenshots; architecture.md
+gains the console API/event bus/SSE + browser components in diagram and
+prose. Final: make test green (50 forge + 131 py + 45 fe), make demo exit 0,
+make e2e 1 passed, ruff + eslint + tsc clean, no servers left running.
+
+FRONTEND_COMPLETE

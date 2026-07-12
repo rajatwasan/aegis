@@ -24,11 +24,37 @@ import { ProposalDrawer } from "./ProposalDrawer";
 export function ApprovalsPage() {
   const proposals = usePendingProposals();
   const [selected, setSelected] = useState<string | null>(null);
+  const [intent, setIntent] = useState<"approve" | "reject" | null>(null);
   const [approver, setApprover] = useApprover();
 
   const rows = [...(proposals.data ?? [])].sort(
     (a, b) => b.created_at - a.created_at,
   );
+
+  const open = (decisionId: string, withIntent: "approve" | "reject" | null) => {
+    setSelected(decisionId);
+    setIntent(withIntent);
+  };
+
+  /** j/k walk the queue, a/r jump straight into acting on the focused row. */
+  const onTableKeyDown = (e: React.KeyboardEvent<HTMLTableSectionElement>) => {
+    const focused = (e.target as HTMLElement).closest("tr");
+    if (focused === null) return;
+    if (e.key === "j" || e.key === "k") {
+      e.preventDefault();
+      const sibling =
+        e.key === "j"
+          ? focused.nextElementSibling
+          : focused.previousElementSibling;
+      if (sibling instanceof HTMLElement) sibling.focus();
+    } else if (e.key === "a" || e.key === "r") {
+      e.preventDefault();
+      const decisionId = focused.dataset.testid?.replace("proposal-", "");
+      if (decisionId !== undefined) {
+        open(decisionId, e.key === "a" ? "approve" : "reject");
+      }
+    }
+  };
 
   return (
     <Page
@@ -61,12 +87,12 @@ export function ApprovalsPage() {
               <th className="px-4 py-2 text-right font-medium">created</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody onKeyDown={onTableKeyDown}>
             {rows.map((row) => (
               <Row
                 key={row.decision_id}
                 row={row}
-                onOpen={() => setSelected(row.decision_id)}
+                onOpen={() => open(row.decision_id, null)}
               />
             ))}
           </tbody>
@@ -77,6 +103,7 @@ export function ApprovalsPage() {
         <ProposalDrawer
           decisionId={selected}
           approver={approver}
+          intent={intent}
           onClose={() => setSelected(null)}
         />
       )}

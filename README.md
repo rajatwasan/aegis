@@ -30,10 +30,17 @@ cannot change what the chain *accepts*.
 # prerequisites: foundry (forge + anvil), python 3.11+, git
 git clone <this-repo> aegis && cd aegis
 
-make setup     # create .venv, install python deps + package, install forge deps
-make test      # contract suite (forge) + python suite (pytest), all local
-make demo      # headless end-to-end on a throwaway anvil, exits 0 on success
+make setup           # create .venv, install python deps + package, install forge deps
+make frontend-setup  # npm install for the Guardian Console (node 20+)
+make test            # forge suite + python suite + frontend suite, all local
+make demo            # headless end-to-end on a throwaway anvil, exits 0 on success
+make dev             # anvil + API + Guardian Console at http://localhost:5173
 ```
+
+`make dev` boots the whole stack in the foreground and opens the human side of
+the loop: fire a canned instruction from the Console screen, watch the agent's
+steps stream in, approve the escalation it produces, and verify the decision
+against the on-chain anchor — without touching a terminal.
 
 `make demo` spins up anvil, deploys the suite, and runs a scripted agent batch:
 
@@ -95,6 +102,43 @@ See [docs/architecture.md](docs/architecture.md) for component and sequence
 diagrams and [docs/threat-model.md](docs/threat-model.md) for the STRIDE
 analysis.
 
+## Guardian Console
+
+The human control surface — a dark, dense control room over the same API the
+agent lives behind (`frontend/`: Vite + React 18 + TypeScript strict, Tailwind
+v4, TanStack Query, typed client generated from the FastAPI OpenAPI schema,
+SSE for everything live).
+
+**Approvals** — the queue of escalations: why each one escalated (matched rule
+ids with their human-readable conditions and the `policyHash`), both parties'
+on-chain compliance/freeze standing, a live TTL countdown, dual-control
+progress, and approve/reject with a required comment. `j`/`k` walk the queue,
+`a`/`r` act on the focused row.
+
+![Approvals queue with the decision drawer](docs/screenshots/approvals.png)
+
+**Console** — the full loop on one screen: a canned instruction runs the real
+LangGraph agent (keyless MockLLM), its steps stream in on the left, the
+escalation appears on the right with inline approve, and the resumed
+execution streams back.
+
+![Command console mid-run](docs/screenshots/console.png)
+
+**Audit** — the hash-chained log with a chain-neighborhood view, and one-click
+cryptographic verification: the Merkle path, local vs on-chain root, and a
+PROOF OK / PROOF FAIL verdict.
+
+![Audit record verified against the on-chain anchor](docs/screenshots/audit-verify.png)
+
+**Dashboard** — decisions by effect, escalation rate, pending count, last
+anchor, and the eval suite's blocked-injection count.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+A Playwright smoke test (`make e2e`, uses your local Chrome) boots the full
+stack and drives exactly this loop: instruction → escalation → approval →
+executed transfer → PROOF OK.
+
 ## Design highlights
 
 - **The key is never where the agent is.** The guardian key lives only in the
@@ -131,12 +175,13 @@ Run it with `make evals`; the full breakdown is in
 ## Repository layout
 
 - `contracts/` — Foundry project: guardian-gated ERC20/ERC1155, registry, anchor
-- `python/aegis/` — policy engine, audit log, approval service, agent, MCP server, CLI
+- `python/aegis/` — policy engine, audit log, approval service, agent, MCP server, CLI, console API
 - `python/tests/` — unit + anvil integration tests (MockLLM only; no key needed)
+- `frontend/` — the Guardian Console (Vite + React + TS strict) with Vitest + Playwright tests
 - `evals/` — prompt-injection corpus, harness, and report
 - `policies/` — YAML policy files (`default.yaml`)
-- `scripts/demo.sh` — headless end-to-end demo
-- `docs/` — architecture, threat model, ADRs
+- `scripts/demo.sh` — headless end-to-end demo; `scripts/dev-stack.sh` — the `make dev` stack
+- `docs/` — architecture, threat model, ADRs, console screenshots
 
 ## License
 

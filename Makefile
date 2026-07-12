@@ -6,7 +6,7 @@ RUFF  := $(VENV)/bin/ruff
 PYTEST:= $(VENV)/bin/pytest
 
 .PHONY: setup fmt lint test test-contracts test-python demo evals clean \
-        frontend-setup frontend-dev frontend-build frontend-test dev
+        frontend-setup frontend-dev frontend-build frontend-test e2e dev
 
 setup:
 	python3 -m venv $(VENV)
@@ -48,6 +48,11 @@ frontend-test: frontend/node_modules
 
 frontend/node_modules:
 	cd frontend && npm install
+
+# Boots the full dev stack (anvil + API + vite) via Playwright's webServer,
+# drives the HITL loop in a real Chrome, and tears everything down.
+e2e: frontend/node_modules
+	cd frontend && npm run e2e
 
 # Runs the API and the vite dev server together in the FOREGROUND.
 # Human-only convenience: never invoke from tests, CI, or automation.

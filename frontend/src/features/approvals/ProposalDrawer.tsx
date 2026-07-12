@@ -21,10 +21,13 @@ import { cn, operationName } from "../../lib/format";
 export function ProposalDrawer({
   decisionId,
   approver,
+  intent = null,
   onClose,
 }: {
   decisionId: string;
   approver: string;
+  /** Set by the a/r shortcuts: focuses the comment and arms Enter-to-act. */
+  intent?: "approve" | "reject" | null;
   onClose: () => void;
 }) {
   const detail = useProposal(decisionId);
@@ -62,7 +65,12 @@ export function ProposalDrawer({
             onRetry={() => void detail.refetch()}
           />
         ) : (
-          <DrawerBody row={detail.data} approver={approver} onClose={onClose} />
+          <DrawerBody
+            row={detail.data}
+            approver={approver}
+            intent={intent}
+            onClose={onClose}
+          />
         )}
       </aside>
     </div>
@@ -72,10 +80,12 @@ export function ProposalDrawer({
 function DrawerBody({
   row,
   approver,
+  intent,
   onClose,
 }: {
   row: ProposalRow;
   approver: string;
+  intent: "approve" | "reject" | null;
   onClose: () => void;
 }) {
   const policyResult = row.proposal.policy_result;
@@ -153,7 +163,12 @@ function DrawerBody({
       )}
 
       {row.status === "pending" && (
-        <ActionForm row={row} approver={approver} onClose={onClose} />
+        <ActionForm
+          row={row}
+          approver={approver}
+          intent={intent}
+          onClose={onClose}
+        />
       )}
     </>
   );
@@ -212,10 +227,12 @@ function PartyLine({ label, address }: { label: string; address: string }) {
 function ActionForm({
   row,
   approver,
+  intent,
   onClose,
 }: {
   row: ProposalRow;
   approver: string;
+  intent: "approve" | "reject" | null;
   onClose: () => void;
 }) {
   const approve = useApproveProposal();
@@ -255,12 +272,24 @@ function ActionForm({
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         rows={2}
+        autoFocus={intent !== null}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && intent !== null && !disabled) {
+            e.preventDefault();
+            act(intent);
+          }
+        }}
         placeholder="why you are approving or rejecting"
         className={cn(
           "mt-1 w-full rounded border border-edge bg-panel-2 px-2 py-1.5 text-[13px]",
           "placeholder:text-ink-faint focus:border-edge-2 focus:outline-none",
         )}
       />
+      {intent !== null && (
+        <p className="mt-1 text-[11px] text-ink-faint">
+          enter &#9166; to {intent} &middot; shift+enter for a new line
+        </p>
+      )}
       <div className="mt-3 flex gap-2">
         <button
           type="button"
