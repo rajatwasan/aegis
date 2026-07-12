@@ -102,7 +102,7 @@ ALL_MILESTONES_COMPLETE
 - [x] F1 — Frontend scaffold: Vite + React 18 + TS strict, typed client, Makefile + CI wiring
 - [x] F2 — Approvals queue
 - [x] F3 — Activity feed + Audit explorer
-- [ ] F4 — Command console + dashboard
+- [x] F4 — Command console + dashboard
 - [ ] F5 — E2E, docs, polish
 
 ## Frontend session notes
@@ -157,3 +157,17 @@ batch id, and a large PROOF OK / PROOF FAIL badge with reason. 13 new tests:
 feed reducer (order, replay dedup, cap), parseBusEvent, invalidation map,
 activity render/filters/live-step, audit list, chain view, verify OK + FAIL,
 404. Suite 50 forge + 131 py + 36 fe, all clean.
+
+**F4 (2026-07-12):** ConsolePage: instruction input + the three canned chips
+posting to /agent/run; split view with agent.step events streaming left
+(phase-toned timeline: planned steps, supervisor tool plans with amounts,
+act results with policy effect/status/tx, awaiting_approval pulse,
+approval_resolved, finished/failed) and live escalations right (SSE-fed
+pending cards with countdown + inline comment-required approve/reject) — the
+whole HITL loop on one screen. DashboardPage (landing): five stat cards
+(total decisions, escalation rate, denials, pending with review-now link,
+injections blocked from evals via /metrics), decisions-by-effect stacked bar
+in the status color language, last-anchor panel with root + tx. 8 new tests
+(chips, run post + step stream, escalation inline-approve loop, 400 surface,
+stat cards, effect bar, anchor, cold start); Shell tests rescoped to the
+status bar now that / renders the dashboard. Suite 50 forge + 131 py + 44 fe.

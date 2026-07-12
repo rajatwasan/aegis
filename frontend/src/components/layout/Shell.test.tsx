@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import App from "../../App";
@@ -27,8 +27,9 @@ describe("Shell", () => {
     renderApp(<App />);
     expect(await screen.findByText("chain 31337")).toBeInTheDocument();
     expect(await screen.findByTestId("pending-count")).toHaveTextContent("2");
-    // last anchor root truncates middle in mono
-    expect(screen.getByText(/0xcdcd.*cdcd/)).toBeInTheDocument();
+    // last anchor root truncates middle in mono (scoped: the dashboard shows it too)
+    const statusBar = screen.getByRole("banner");
+    expect(within(statusBar).getByText(/0xcdcd.*cdcd/)).toBeInTheDocument();
   });
 
   it("shows disconnected state when the chain is not configured", async () => {
@@ -82,6 +83,8 @@ describe("Shell", () => {
       .getQueryCache()
       .find({ queryKey: ["metrics"] })
       ?.promise?.catch(() => undefined);
-    expect(await screen.findByText("5")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("pending-count")).toHaveTextContent("5"),
+    );
   });
 });
