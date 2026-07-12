@@ -99,7 +99,7 @@ ALL_MILESTONES_COMPLETE
 ## Frontend milestones (FRONTEND.md)
 
 - [x] F0 — Backend API surface: CORS, event bus + SSE, decisions/audit/policy/metrics endpoints, /agent/run
-- [ ] F1 — Frontend scaffold: Vite + React 18 + TS strict, typed client, Makefile + CI wiring
+- [x] F1 — Frontend scaffold: Vite + React 18 + TS strict, typed client, Makefile + CI wiring
 - [ ] F2 — Approvals queue
 - [ ] F3 — Activity feed + Audit explorer
 - [ ] F4 — Command console + dashboard
@@ -119,3 +119,15 @@ agent.step events, poll-resume on approval), GET /agent/instructions.
 ADR 002 records the spec->code mapping. 24 new tests incl. a real-uvicorn SSE
 consumption test; suite 50 forge + 128 py, ruff clean, zero existing tests
 modified.
+
+**F1 (2026-07-12):** frontend/ scaffold: Vite + React 18 + TS strict, Tailwind v4
+tokens (dark control-room palette, Inter + JetBrains Mono via fontsource),
+React Router shell (left nav, top StatusBar with SSE-live chain/anchor/pending),
+TanStack Query, typed client from committed openapi.json snapshot
+(scripts/gen_openapi.py + `npm run gen:api`), EventsProvider wrapping a
+reconnecting EventSource. /metrics gained a ChainStatus block (live eth_chainId
+probe) for the status bar. Makefile: frontend-{setup,dev,build,test} + `dev`
+(scripts/dev-stack.sh: anvil + aegis.devstack deploy + uvicorn + vite,
+human-only foreground); `make test` now includes frontend-test. CI node job
+(lint, typecheck, test, build). 14 vitest tests (format utils, shell + status
+bar via MSW); full suite 50 forge + 128 py + 14 fe, ruff + eslint clean.

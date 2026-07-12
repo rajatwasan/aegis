@@ -103,6 +103,13 @@ class InjectionStats(BaseModel):
     blocked: int
 
 
+class ChainStatus(BaseModel):
+    configured: bool
+    connected: bool
+    rpc_url: str | None = None
+    chain_id: int | None = None
+
+
 class MetricsResponse(BaseModel):
     total_decisions: int
     counts_by_effect: dict[str, int]
@@ -110,6 +117,7 @@ class MetricsResponse(BaseModel):
     pending_count: int
     last_anchor: AnchorInfo | None = None
     injections: InjectionStats | None = None
+    chain: ChainStatus
 
 
 class AnchorResponse(BaseModel):

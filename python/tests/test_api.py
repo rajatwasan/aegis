@@ -216,6 +216,12 @@ class TestMetrics:
         assert body["pending_count"] == 1
         assert body["last_anchor"] is None
         assert body["injections"] is None  # report path points nowhere in this fixture
+        assert body["chain"] == {
+            "configured": False,
+            "connected": False,
+            "rpc_url": None,
+            "chain_id": None,
+        }
 
     def test_parse_real_eval_report(self) -> None:
         stats = parse_eval_report(REPO_ROOT / "evals" / "report.md")

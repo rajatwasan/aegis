@@ -93,9 +93,12 @@ class TestAnchorAndVerify:
         assert verify["onchain_root"] == verify["local_root"]
         assert isinstance(verify["merkle_path"], list) and verify["merkle_path"]
 
-        # metrics now report the anchor
+        # metrics now report the anchor and the live chain
         metrics = client.get("/metrics").json()
         assert metrics["last_anchor"]["batch_id"] == 0
+        assert metrics["chain"]["configured"] is True
+        assert metrics["chain"]["connected"] is True
+        assert metrics["chain"]["chain_id"] == 31337
 
     def test_verify_unanchored_record_fails_cleanly(self, chain_app, client: TestClient) -> None:
         records = seed_records(chain_app, n=1)

@@ -1,0 +1,119 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "tailwindcss";
+
+/*
+ * Guardian Console design tokens — a dark control room.
+ * Status is a color LANGUAGE, used identically everywhere:
+ *   allow / executed  -> green   (--color-ok)
+ *   escalate / pending -> amber  (--color-warn)
+ *   deny / frozen / rejected -> red (--color-danger)
+ *   info / anchored   -> blue    (--color-info)
+ */
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", monospace;
+
+  --color-bg: #0a0e14;
+  --color-panel: #10151d;
+  --color-panel-2: #151b25;
+  --color-edge: #1f2733;
+  --color-edge-2: #2a3442;
+
+  --color-ink: #dde3ea;
+  --color-ink-dim: #8b96a5;
+  --color-ink-faint: #5c6773;
+
+  --color-accent: #66d9c2;
+  --color-accent-dim: #2b5f54;
+
+  --color-ok: #4ade80;
+  --color-ok-dim: #14321f;
+  --color-warn: #fbbf24;
+  --color-warn-dim: #3a2c0a;
+  --color-danger: #f87171;
+  --color-danger-dim: #3b1414;
+  --color-info: #60a5fa;
+  --color-info-dim: #14263f;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* every hash, address, amount and id is mono — enforced via .mono */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: var(--color-accent-dim);
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes skeleton-sheen {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-panel-2) 25%,
+    var(--color-edge) 50%,
+    var(--color-panel-2) 75%
+  );
+  background-size: 400px 100%;
+  animation: skeleton-sheen 1.4s linear infinite;
+}
+
+/* rows fading out as their TTL dies (F2 expired decay) */
+@keyframes decay-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.decay-out {
+  animation: decay-out 600ms ease-in forwards;
+}

@@ -23,6 +23,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -30,7 +31,7 @@ from fastapi.responses import StreamingResponse
 from aegis import anchoring
 from aegis.anchoring import StateError
 from aegis.api.agent_runner import AgentRunner, UnknownInstructionError, canned_instructions
-from aegis.api.config import ApiConfig
+from aegis.api.config import ApiConfig, load_chain_state
 from aegis.api.describe import describe_rule
 from aegis.api.models import (
     AgentRunRequest,
@@ -42,6 +43,7 @@ from aegis.api.models import (
     AuditRecordsPage,
     CannedInstruction,
     CannedInstructionsResponse,
+    ChainStatus,
     DecisionItem,
     DecisionsPage,
     InjectionStats,
@@ -209,6 +211,26 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
 
     # ----------------------------------------------------------------- metrics
 
+    def _chain_status() -> ChainStatus:
+        state = load_chain_state(state_dir)
+        if state is None:
+            return ChainStatus(configured=False, connected=False)
+        chain_id: int | None = state.get("chain_id")
+        connected = False
+        try:
+            res = httpx.post(
+                state["rpc_url"],
+                json={"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []},
+                timeout=1.0,
+            )
+            connected = res.status_code == 200
+            chain_id = int(res.json()["result"], 16)
+        except (httpx.HTTPError, KeyError, ValueError):
+            pass
+        return ChainStatus(
+            configured=True, connected=connected, rpc_url=state["rpc_url"], chain_id=chain_id
+        )
+
     def _last_anchor() -> AnchorInfo | None:
         anchors = anchoring.load_anchors(state_dir)
         if not anchors:
@@ -239,6 +261,7 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
             pending_count=pending,
             last_anchor=_last_anchor(),
             injections=parse_eval_report(Path(config.evals_report_path)),
+            chain=_chain_status(),
         )
 
     # ------------------------------------------------------------------- agent

@@ -54,3 +54,63 @@ I resumed from **M6** (M0–M5 were already green) and completed the remaining t
 Committed as three conventional commits (M6, M7, M8) on `main`. Per the constitution I made only local commits — no push. The only unstaged changes are `loop.out` and `run.log`, which are the autonomous-runner's own log artifacts (gitignored patterns, but tracked), so I left them untouched.
 [loop] session 1 exited Sat Jul 11 23:55:39 PDT 2026
 [loop] finished Sat Jul 11 23:55:59 PDT 2026
+[loop] frontend session 1 Sun Jul 12 02:14:30 PDT 2026
+You've hit your session limit · resets 4:30am (America/Los_Angeles)
+[loop] frontend session 2 Sun Jul 12 02:14:53 PDT 2026
+You've hit your session limit · resets 4:30am (America/Los_Angeles)
+[loop] frontend session 3 Sun Jul 12 02:15:15 PDT 2026
+You've hit your session limit · resets 4:30am (America/Los_Angeles)
+[loop] frontend session 4 Sun Jul 12 02:15:39 PDT 2026
+You've hit your session limit · resets 4:30am (America/Los_Angeles)
+[loop] frontend session 5 Sun Jul 12 02:16:01 PDT 2026
+You've hit your session limit · resets 4:30am (America/Los_Angeles)
+[loop] frontend session 6 Sun Jul 12 02:16:23 PDT 2026
+You've hit your session limit · resets 4:30am (America/Los_Angeles)
+[loop] frontend session 7 Sun Jul 12 02:16:45 PDT 2026
+You've hit your session limit · resets 4:30am (America/Los_Angeles)
+[loop] frontend session 8 Sun Jul 12 02:17:07 PDT 2026
+You've hit your session limit · resets 4:30am (America/Los_Angeles)
+[loop] max runs reached
+[loop] frontend session 1 Sun Jul 12 02:21:44 PDT 2026
+The background watcher I already armed is exactly the recommended single-notification pattern, so I don't need a second monitor. I'll report status and wait for the wake-up.
+
+**Status: paused, deliberately.** Here's the situation and what I did:
+
+- F0 is committed; F1 is the first incomplete milestone. But the working tree has substantial in-flight F1 work: the full `frontend/` scaffold (Vite + React 18 + TS strict, Tailwind v4 design tokens, typed openapi-fetch client, SSE event stream plumbing, layout shell + status bar), plus an uncommitted API addition (`chain` status on `/metrics`) with its tests. The 128-test python suite passes with those changes.
+- **Another live Claude session (PID 28756) is actively building F1 in this same working tree right now** — it started at 01:20 (an hour before me), is consuming CPU, and created `frontend/src/test/msw.ts` and `render.tsx` less than two minutes ago. I verified it is a separate interactive terminal session, not me (I'm the `run-frontend.sh` loop child, PID 34938).
+- Two agents editing and committing in one working tree would corrupt each other's work, and killing an hour of the other session's in-flight progress would be destructive. So instead of trampling it, I armed a background watcher that wakes me the moment PID 28756 exits.
+
+When it exits I will: re-read PROGRESS.md and the working tree, run the full verification (`make test`, frontend lint/typecheck/test/build), finish whatever F-milestone is incomplete, and keep going until FRONTEND_COMPLETE per the mission.
+[loop] frontend session 2 Sun Jul 12 02:26:02 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 3 Sun Jul 12 02:26:23 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 4 Sun Jul 12 02:26:45 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 5 Sun Jul 12 02:27:07 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 6 Sun Jul 12 02:27:28 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 7 Sun Jul 12 02:27:50 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 8 Sun Jul 12 02:28:11 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] max runs reached
+[loop] frontend session 1 Sun Jul 12 02:32:27 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 2 Sun Jul 12 02:32:49 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 3 Sun Jul 12 02:33:10 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 4 Sun Jul 12 02:33:32 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 5 Sun Jul 12 02:33:54 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 6 Sun Jul 12 02:34:15 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 7 Sun Jul 12 02:34:37 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] frontend session 8 Sun Jul 12 02:34:59 PDT 2026
+You've hit your session limit · resets 4:50am (America/Los_Angeles)
+[loop] max runs reached
+[loop] frontend session 1 Sun Jul 12 13:27:42 PDT 2026

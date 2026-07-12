@@ -5,7 +5,8 @@ PIP   := $(VENV)/bin/pip
 RUFF  := $(VENV)/bin/ruff
 PYTEST:= $(VENV)/bin/pytest
 
-.PHONY: setup fmt lint test test-contracts test-python demo evals clean
+.PHONY: setup fmt lint test test-contracts test-python demo evals clean \
+        frontend-setup frontend-dev frontend-build frontend-test dev
 
 setup:
 	python3 -m venv $(VENV)
@@ -23,13 +24,35 @@ lint:
 	$(RUFF) check python/
 	$(RUFF) format --check python/
 
-test: test-contracts test-python
+test: test-contracts test-python frontend-test
 
 test-contracts:
 	cd contracts && forge test
 
 test-python:
 	$(PYTEST) python/tests -q
+
+# ------------------------------------------------------------------ frontend
+
+frontend-setup:
+	cd frontend && npm install
+
+frontend-dev:
+	cd frontend && npm run dev
+
+frontend-build:
+	cd frontend && npm run lint && npm run build
+
+frontend-test: frontend/node_modules
+	cd frontend && npm test
+
+frontend/node_modules:
+	cd frontend && npm install
+
+# Runs the API and the vite dev server together in the FOREGROUND.
+# Human-only convenience: never invoke from tests, CI, or automation.
+dev:
+	bash scripts/dev-stack.sh
 
 demo:
 	bash scripts/demo.sh
