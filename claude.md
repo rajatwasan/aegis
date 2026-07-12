@@ -64,3 +64,22 @@ No human will answer questions until morning. These rules override everything el
   no test may depend on network access or a real LLM key.
 - Documentation is a deliverable, not a leftover: README quickstart must work
   by copy-paste.
+
+  ## Frontend addendum
+
+- Network: npm registry is now also permitted for dependency installation.
+  Nothing else changes: no other URLs, no MCP tools.
+- All Node dependencies are local to `frontend/` (package.json + lockfile).
+  Never `npm install -g`. Use npm, not pnpm or yarn.
+- Dev servers (vite, uvicorn) may run ONLY in the background inside test
+  fixtures or scripts, always terminated in teardown. Never leave a server
+  running at the end of a session.
+- Do not modify contracts/ at all. Python changes are limited to the API
+  additions listed in FRONTEND.md milestone F0. Every existing test must
+  remain green after every commit; run the full `make test` before committing.
+- Quality bar, frontend: TypeScript strict mode, ESLint clean, no `any` at
+  module boundaries, every component with loading/empty/error states, all
+  data-fetching through the generated API client, component tests via
+  Vitest + Testing Library + MSW (no test may hit a real server or network).
+- When frontend work is complete per FRONTEND.md, append FRONTEND_COMPLETE
+  as the final line of PROGRESS.md and stop.

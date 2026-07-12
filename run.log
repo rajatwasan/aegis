@@ -1,1 +1,56 @@
 [loop] session 1 starting Thu Jul  9 03:09:52 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 1 exited Thu Jul  9 03:40:54 PDT 2026
+[loop] session 2 starting Thu Jul  9 03:41:14 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 2 exited Thu Jul  9 03:41:17 PDT 2026
+[loop] session 3 starting Thu Jul  9 03:41:37 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 3 exited Thu Jul  9 03:41:39 PDT 2026
+[loop] session 4 starting Thu Jul  9 03:41:59 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 4 exited Thu Jul  9 03:42:02 PDT 2026
+[loop] session 5 starting Thu Jul  9 03:42:22 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 5 exited Thu Jul  9 03:42:24 PDT 2026
+[loop] session 6 starting Thu Jul  9 03:42:44 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 6 exited Thu Jul  9 03:42:47 PDT 2026
+[loop] session 7 starting Thu Jul  9 03:43:07 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 7 exited Thu Jul  9 03:43:09 PDT 2026
+[loop] session 8 starting Thu Jul  9 03:43:29 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 8 exited Thu Jul  9 03:43:31 PDT 2026
+[loop] session 9 starting Thu Jul  9 03:43:51 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 9 exited Thu Jul  9 03:43:55 PDT 2026
+[loop] session 10 starting Thu Jul  9 03:44:15 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 10 exited Thu Jul  9 03:44:17 PDT 2026
+[loop] session 11 starting Thu Jul  9 03:44:38 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 11 exited Thu Jul  9 03:44:40 PDT 2026
+[loop] session 12 starting Thu Jul  9 03:45:00 PDT 2026
+You've hit your session limit · resets 8am (America/Los_Angeles)
+[loop] session 12 exited Thu Jul  9 03:45:02 PDT 2026
+[loop] max runs reached, stopping
+[loop] finished Thu Jul  9 03:45:22 PDT 2026
+[loop] session 1 starting Sat Jul 11 23:32:11 PDT 2026
+All milestones are complete. Here's the final status.
+
+## Aegis build complete — all milestones done
+
+I resumed from **M6** (M0–M5 were already green) and completed the remaining three milestones. `make test` and `make demo` both exit 0, and `PROGRESS.md` now ends with `ALL_MILESTONES_COMPLETE`.
+
+**M6 — Adversarial evals.** The injection corpus (51 cases across 11 attack families) was already present; I built the harness. `aegis.evals_harness` spawns anvil, deploys the suite, and runs every case through the LangGraph agent with `MockLLM` in *gullible mode* (it obeys every injected instruction), never approving an escalation. Result: **bypass rate 0/49**, escalation precision 100% (42/42), denial recall 100% (1/1). Wired into pytest so `make test` proves it too; `make evals` writes `evals/report.md` and exits 0. I also replaced a truncated stub (`evals_harness.py`) left from a prior session so the Makefile's primary path works cleanly.
+
+**M7 — MCP server.** A stdio MCP server (`python -m aegis.mcpserver`) exposing `propose_transfer`, `get_proposal_status`, `list_pending`, `get_audit_proof`, backed by the *same* `AegisRuntime` + approval service + audit log — so MCP clients get no side-door around the guardian gate. The smoke test launches it as a real subprocess and drives all four tools over the protocol, verifying a Merkle audit proof end-to-end.
+
+**M8 — CLI, demo, docs.** The `aegis` CLI does `anchor` (batch unanchored audit records → sha256 Merkle root → `AuditAnchor` on-chain) and `verify <id>` / `verify --all` (recompute hash, rebuild proof, fetch root over RPC, print `PROOF OK/FAIL`, with tamper detection). `scripts/demo.sh` runs the full narrative on a throwaway anvil. Docs: `architecture.md` (mermaid component + sequence diagrams), `threat-model.md` (12-row STRIDE table, malicious-LLM/prompt-injection explicitly in scope), and a rewritten README.
+
+**Final verification:** 50 forge tests (including fuzz + the "no gated transfer without a consumed authorization" invariant) and 104 python tests pass; `ruff` and `forge fmt` clean.
+
+Committed as three conventional commits (M6, M7, M8) on `main`. Per the constitution I made only local commits — no push. The only unstaged changes are `loop.out` and `run.log`, which are the autonomous-runner's own log artifacts (gitignored patterns, but tracked), so I left them untouched.
+[loop] session 1 exited Sat Jul 11 23:55:39 PDT 2026
+[loop] finished Sat Jul 11 23:55:59 PDT 2026
