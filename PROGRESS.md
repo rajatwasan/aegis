@@ -12,7 +12,7 @@ milestone's acceptance criteria pass locally.
 - [x] M4 — Approval service: FastAPI HITL, idempotency, TTL expiry, dual-control flag, guardian EIP-712 signer, HTML approval page
 - [x] M5 — Agent: LangGraph graph, typed tools, MockLLM/AnthropicLLM, anvil integration test (5 transfers + freeze deny)
 - [x] M6 — Adversarial evals: 50+ injection corpus, gullible-mode harness, report with bypass rate 0
-- [ ] M7 — MCP server: stdio server with 4 tools, protocol smoke test
+- [x] M7 — MCP server: stdio server with 4 tools, protocol smoke test
 - [ ] M8 — Verify CLI, demo.sh, docs (architecture, threat model, README); `make demo` exits 0
 
 ## Session notes
@@ -70,3 +70,13 @@ escalated/denied/refused, the 2 legit compliant transfers execute. Bypass rate
 0 (0/49), escalation precision 100% (42/42), denial recall 100% (1/1); report
 written to evals/report.md. Wired into pytest (test_evals.py) so `make test`
 also proves the guarantee. `make evals` exits 0.
+
+**M7 (2026-07-11):** aegis.mcpserver stdio server (official mcp sdk, low-level
+Server API) exposing propose_transfer, get_proposal_status, list_pending,
+get_audit_proof. AegisBackend wraps the same AegisRuntime + in-process approval
+service (shared sqlite) + audit log, so MCP clients hit the identical policy
+gate — gated moves escalate to a human, never auto-execute. Config from AEGIS_*
+env (rpc, token/registry addresses, keys, paths). Smoke test launches the
+server as a real subprocess and speaks MCP over stdio: lists 4 tools, executes
+a small compliant transfer, escalates a large one, reads the pending queue and
+status, and verifies a Merkle audit proof.
