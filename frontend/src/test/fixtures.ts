@@ -2,6 +2,7 @@
 
 import type {
   AuditRecordItem,
+  DecisionItem,
   Metrics,
   PolicyResponse,
   ProposalRow,
@@ -59,6 +60,20 @@ export function makeMetrics(overrides: Partial<Metrics> = {}): Metrics {
       rpc_url: "http://127.0.0.1:8545",
       chain_id: 31337,
     },
+    ...overrides,
+  };
+}
+
+export function makeDecision(overrides: Partial<DecisionItem> = {}): DecisionItem {
+  return {
+    decision_id: "gate-1",
+    ts: new Date(Date.UTC(2026, 6, 12, 9, 30)).toISOString(),
+    actor: "agent",
+    effect: "allow",
+    status: "executed",
+    matched_rules: ["allow-small-compliant-transfer"],
+    tx_hash: "ab".repeat(32),
+    proposal: { operation: 1, token: TOKEN, from: OPERATOR, to: ALICE, amount: 1200 },
     ...overrides,
   };
 }

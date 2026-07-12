@@ -101,7 +101,7 @@ ALL_MILESTONES_COMPLETE
 - [x] F0 — Backend API surface: CORS, event bus + SSE, decisions/audit/policy/metrics endpoints, /agent/run
 - [x] F1 — Frontend scaffold: Vite + React 18 + TS strict, typed client, Makefile + CI wiring
 - [x] F2 — Approvals queue
-- [ ] F3 — Activity feed + Audit explorer
+- [x] F3 — Activity feed + Audit explorer
 - [ ] F4 — Command console + dashboard
 - [ ] F5 — E2E, docs, polish
 
@@ -144,3 +144,16 @@ per ADR 003), optimistic removal with rollback on 409. PolicyPage: ordered
 rule cards with conditions, allowlist, raw yaml + hash. 9 new component tests
 (render/order, countdown+decay, approve, reject, dual-control, error rollback,
 identity gate, policy render); suite 50 forge + 131 py + 23 fe, all clean.
+
+**F3 (2026-07-12):** ActivityPage: chronological feed merging /decisions
+(backfill, SSE-invalidated) with live agent.step events from the ring-buffer
+feed store; effect-colored timeline dots, effect + operation filter chips
+(specific filters hide effect-less steps). AuditPage: paginated newest-first
+record table (newer/older pager) linking to /audit/{decision_id}. Audit
+record view: chain neighborhood with prev_hash->record_hash link markers
+(green when linked), sorted canonical JSON, integrity fields, and Verify
+button rendering every Merkle path level, local vs on-chain root match, anchor
+batch id, and a large PROOF OK / PROOF FAIL badge with reason. 13 new tests:
+feed reducer (order, replay dedup, cap), parseBusEvent, invalidation map,
+activity render/filters/live-step, audit list, chain view, verify OK + FAIL,
+404. Suite 50 forge + 131 py + 36 fe, all clean.

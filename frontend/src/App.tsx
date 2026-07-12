@@ -2,7 +2,10 @@ import { Route, Routes } from "react-router-dom";
 import { Shell } from "./components/layout/Shell";
 import { Page } from "./components/layout/Page";
 import { EmptyState } from "./components/ui/States";
+import { ActivityPage } from "./features/activity/ActivityPage";
 import { ApprovalsPage } from "./features/approvals/ApprovalsPage";
+import { AuditPage } from "./features/audit/AuditPage";
+import { AuditRecordPage } from "./features/audit/AuditRecordPage";
 import { PolicyPage } from "./features/policy/PolicyPage";
 
 function ComingSoon({ title, milestone }: { title: string; milestone: string }) {
@@ -19,11 +22,9 @@ export default function App() {
       <Route element={<Shell />}>
         <Route index element={<ComingSoon title="Dashboard" milestone="F4" />} />
         <Route path="approvals" element={<ApprovalsPage />} />
-        <Route
-          path="activity"
-          element={<ComingSoon title="Activity" milestone="F3" />}
-        />
-        <Route path="audit" element={<ComingSoon title="Audit" milestone="F3" />} />
+        <Route path="activity" element={<ActivityPage />} />
+        <Route path="audit" element={<AuditPage />} />
+        <Route path="audit/:decisionId" element={<AuditRecordPage />} />
         <Route path="policy" element={<PolicyPage />} />
         <Route
           path="console"
