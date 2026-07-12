@@ -13,7 +13,7 @@ milestone's acceptance criteria pass locally.
 - [x] M5 — Agent: LangGraph graph, typed tools, MockLLM/AnthropicLLM, anvil integration test (5 transfers + freeze deny)
 - [x] M6 — Adversarial evals: 50+ injection corpus, gullible-mode harness, report with bypass rate 0
 - [x] M7 — MCP server: stdio server with 4 tools, protocol smoke test
-- [ ] M8 — Verify CLI, demo.sh, docs (architecture, threat model, README); `make demo` exits 0
+- [x] M8 — Verify CLI, demo.sh, docs (architecture, threat model, README); `make demo` exits 0
 
 ## Session notes
 
@@ -80,3 +80,18 @@ env (rpc, token/registry addresses, keys, paths). Smoke test launches the
 server as a real subprocess and speaks MCP over stdio: lists 4 tools, executes
 a small compliant transfer, escalates a large one, reads the pending queue and
 status, and verifies a Merkle audit proof.
+
+**M8 (2026-07-11):** aegis CLI (pyproject console_script) with `anchor` (batch
+unanchored audit records, sha256 Merkle root, anchor on-chain via AuditAnchor)
+and `verify <id>` / `verify --all` (recompute record hash, rebuild Merkle proof,
+fetch batch root over RPC, print PROOF OK/FAIL; tamper detection). aegis.demo
+runs the M5 scenario on an anvil owned by scripts/demo.sh, auto-approves the
+escalation, writes state.json, then the script anchors and verifies with a
+narrative — `make demo` exits 0. CLI tests (anchor/verify/tamper) in pytest.
+Docs: architecture.md (mermaid component + sequence diagrams, trust-boundary
+table), threat-model.md (assets, boundaries, 12-row STRIDE table, malicious-LLM
++ prompt-injection in scope, residual risks), README rewrite (what/why,
+90-second quickstart, design highlights, eval results). Full suite green: 50
+forge tests + 104 py tests; ruff + forge fmt clean.
+
+ALL_MILESTONES_COMPLETE
