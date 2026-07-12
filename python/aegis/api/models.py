@@ -110,6 +110,15 @@ class ChainStatus(BaseModel):
     chain_id: int | None = None
 
 
+class PartyStatus(BaseModel):
+    """On-chain standing of one address, as the policy gate would see it."""
+
+    address: str
+    known: bool
+    compliant: bool | None = None
+    frozen: bool | None = None
+
+
 class MetricsResponse(BaseModel):
     total_decisions: int
     counts_by_effect: dict[str, int]

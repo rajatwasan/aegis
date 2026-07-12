@@ -496,6 +496,47 @@
         "title": "MetricsResponse",
         "type": "object"
       },
+      "PartyStatus": {
+        "description": "On-chain standing of one address, as the policy gate would see it.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "compliant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compliant"
+          },
+          "frozen": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frozen"
+          },
+          "known": {
+            "title": "Known",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "address",
+          "known"
+        ],
+        "title": "PartyStatus",
+        "type": "object"
+      },
       "PolicyResponse": {
         "properties": {
           "allowlist": {
@@ -983,6 +1024,46 @@
           }
         },
         "summary": "Verify Audit Record"
+      }
+    },
+    "/compliance/{address}": {
+      "get": {
+        "description": "Registry compliance + freeze standing of one address (F2 drawer).",
+        "operationId": "get_party_status_compliance__address__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address",
+            "required": true,
+            "schema": {
+              "title": "Address",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartyStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Party Status"
       }
     },
     "/decisions": {

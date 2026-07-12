@@ -94,6 +94,20 @@ export function useAuditRecord(decisionId: string | null) {
   });
 }
 
+export function usePartyStatus(address: string | null) {
+  return useQuery({
+    queryKey: ["compliance", address],
+    enabled: address !== null,
+    staleTime: 60_000,
+    queryFn: () =>
+      unwrap(
+        api.GET("/compliance/{address}", {
+          params: { path: { address: address ?? "" } },
+        }),
+      ),
+  });
+}
+
 export function usePolicy() {
   return useQuery({
     queryKey: ["policy"],

@@ -3,6 +3,7 @@ import type { components } from "./schema";
 /** Generated schema aliases — the vocabulary the whole app speaks. */
 export type Metrics = components["schemas"]["MetricsResponse"];
 export type ChainStatus = components["schemas"]["ChainStatus"];
+export type PartyStatus = components["schemas"]["PartyStatus"];
 export type AnchorInfo = components["schemas"]["AnchorInfo"];
 export type DecisionItem = components["schemas"]["DecisionItem"];
 export type DecisionsPage = components["schemas"]["DecisionsPage"];

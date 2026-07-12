@@ -1,15 +1,6 @@
-import { useEffect, useState } from "react";
 import { absoluteTime, countdown, relativeTime } from "../../lib/format";
 import { cn } from "../../lib/format";
-
-function useNow(intervalMs: number): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), intervalMs);
-    return () => window.clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
+import { useNow } from "../../lib/useNow";
 
 /** Relative time, absolute on hover. */
 export function TimeAgo({ value }: { value: string | number }) {

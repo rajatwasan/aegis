@@ -134,6 +134,11 @@ class AgentRunner:
 
     # ------------------------------------------------------------ public
 
+    def runtime(self) -> AegisRuntime:
+        """The shared runtime (compliance/frozen reads); StateError if no chain."""
+        runtime, _ = self._ensure_runtime()
+        return runtime
+
     def start(self, instruction: str) -> AgentRun:
         """Validate the instruction, then run the agent in a worker thread."""
         runtime, state = self._ensure_runtime()

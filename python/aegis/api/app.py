@@ -48,6 +48,7 @@ from aegis.api.models import (
     DecisionsPage,
     InjectionStats,
     MetricsResponse,
+    PartyStatus,
     PolicyResponse,
     PolicyRuleView,
     VerifyResponse,
@@ -208,6 +209,24 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
                 for r in policy.rules
             ],
         )
+
+    # -------------------------------------------------------------- compliance
+
+    @app.get("/compliance/{address}", response_model=PartyStatus)
+    def get_party_status(address: str) -> PartyStatus:
+        """Registry compliance + freeze standing of one address (F2 drawer)."""
+        if not re.fullmatch(r"0x[0-9a-fA-F]{40}", address):
+            raise HTTPException(400, "not an address")
+        try:
+            runtime = app.state.runner.runtime()
+            return PartyStatus(
+                address=address,
+                known=True,
+                compliant=runtime.check_compliance(address),
+                frozen=runtime.is_frozen(address),
+            )
+        except Exception:  # noqa: BLE001 - no chain state / RPC down: unknown, not 500
+            return PartyStatus(address=address, known=False)
 
     # ----------------------------------------------------------------- metrics
 

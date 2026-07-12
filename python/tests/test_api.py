@@ -187,6 +187,13 @@ class TestChainlessErrors:
         res = client.post("/agent/run", json={"instruction": "Pay the vendor invoice batch"})
         assert res.status_code == 503
 
+    def test_compliance_without_state_is_unknown(self, client: TestClient) -> None:
+        body = client.get(f"/compliance/{ALICE}").json()
+        assert body == {"address": ALICE, "known": False, "compliant": None, "frozen": None}
+
+    def test_compliance_rejects_non_address(self, client: TestClient) -> None:
+        assert client.get("/compliance/not-an-address").status_code == 400
+
 
 class TestPolicy:
     def test_policy_roundtrip(self, client: TestClient) -> None:

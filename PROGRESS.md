@@ -100,7 +100,7 @@ ALL_MILESTONES_COMPLETE
 
 - [x] F0 — Backend API surface: CORS, event bus + SSE, decisions/audit/policy/metrics endpoints, /agent/run
 - [x] F1 — Frontend scaffold: Vite + React 18 + TS strict, typed client, Makefile + CI wiring
-- [ ] F2 — Approvals queue
+- [x] F2 — Approvals queue
 - [ ] F3 — Activity feed + Audit explorer
 - [ ] F4 — Command console + dashboard
 - [ ] F5 — E2E, docs, polish
@@ -131,3 +131,16 @@ probe) for the status bar. Makefile: frontend-{setup,dev,build,test} + `dev`
 human-only foreground); `make test` now includes frontend-test. CI node job
 (lint, typecheck, test, build). 14 vitest tests (format utils, shell + status
 bar via MSW); full suite 50 forge + 128 py + 14 fe, ruff + eslint clean.
+
+**F2 (2026-07-12):** ApprovalsPage: pending escalations newest-first, live via
+SSE invalidation; rows show operation badge, from->to hash chips, amount+class,
+ticking TTL countdown, dual-control progress; expired rows decay out and
+trigger a refetch. ProposalDrawer: full payload, matched rules joined to their
+human-readable conditions + policyHash, both parties' on-chain standing via new
+GET /compliance/{address} (PartyStatus; reuses the runner's AegisRuntime reads,
+degrades to "unknown" chainless — ADR 003), approve/reject with required
+comment and client-side approver identity (localStorage, sent as body field
+per ADR 003), optimistic removal with rollback on 409. PolicyPage: ordered
+rule cards with conditions, allowlist, raw yaml + hash. 9 new component tests
+(render/order, countdown+decay, approve, reject, dual-control, error rollback,
+identity gate, policy render); suite 50 forge + 131 py + 23 fe, all clean.

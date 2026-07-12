@@ -123,6 +123,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/compliance/{address}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Party Status
+         * @description Registry compliance + freeze standing of one address (F2 drawer).
+         */
+        get: operations["get_party_status_compliance__address__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/decisions": {
         parameters: {
             query?: never;
@@ -444,6 +464,20 @@ export interface components {
             /** Total Decisions */
             total_decisions: number;
         };
+        /**
+         * PartyStatus
+         * @description On-chain standing of one address, as the policy gate would see it.
+         */
+        PartyStatus: {
+            /** Address */
+            address: string;
+            /** Compliant */
+            compliant?: boolean | null;
+            /** Frozen */
+            frozen?: boolean | null;
+            /** Known */
+            known: boolean;
+        };
         /** PolicyResponse */
         PolicyResponse: {
             /** Allowlist */
@@ -717,6 +751,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VerifyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_party_status_compliance__address__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                address: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartyStatus"];
                 };
             };
             /** @description Validation Error */

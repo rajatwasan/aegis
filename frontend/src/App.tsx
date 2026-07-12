@@ -2,6 +2,8 @@ import { Route, Routes } from "react-router-dom";
 import { Shell } from "./components/layout/Shell";
 import { Page } from "./components/layout/Page";
 import { EmptyState } from "./components/ui/States";
+import { ApprovalsPage } from "./features/approvals/ApprovalsPage";
+import { PolicyPage } from "./features/policy/PolicyPage";
 
 function ComingSoon({ title, milestone }: { title: string; milestone: string }) {
   return (
@@ -16,16 +18,13 @@ export default function App() {
     <Routes>
       <Route element={<Shell />}>
         <Route index element={<ComingSoon title="Dashboard" milestone="F4" />} />
-        <Route
-          path="approvals"
-          element={<ComingSoon title="Approvals" milestone="F2" />}
-        />
+        <Route path="approvals" element={<ApprovalsPage />} />
         <Route
           path="activity"
           element={<ComingSoon title="Activity" milestone="F3" />}
         />
         <Route path="audit" element={<ComingSoon title="Audit" milestone="F3" />} />
-        <Route path="policy" element={<ComingSoon title="Policy" milestone="F2" />} />
+        <Route path="policy" element={<PolicyPage />} />
         <Route
           path="console"
           element={<ComingSoon title="Console" milestone="F4" />}

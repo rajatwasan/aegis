@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 from aegis.api import ApiConfig, create_api_app
 from aegis.approval import ApprovalConfig
-from tests.conftest import KEYS, OPERATOR
+from tests.conftest import ACCOUNTS, KEYS, OPERATOR
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
@@ -130,6 +130,22 @@ def wait_for(predicate, timeout: float = 30.0, interval: float = 0.05):
             return value
         time.sleep(interval)
     raise AssertionError("condition not met in time")
+
+
+class TestCompliance:
+    def test_party_status_reads_the_chain(self, client: TestClient) -> None:
+        compliant = client.get(f"/compliance/{ACCOUNTS[1]}").json()
+        assert compliant == {
+            "address": ACCOUNTS[1],
+            "known": True,
+            "compliant": True,
+            "frozen": False,
+        }
+
+        frozen = client.get(f"/compliance/{ACCOUNTS[4]}").json()
+        assert frozen["known"] is True
+        assert frozen["compliant"] is False
+        assert frozen["frozen"] is True
 
 
 class TestAgentRun:

@@ -50,6 +50,14 @@ export const handlers = [
     HttpResponse.json(makeVerifyResponse({ decision_id: String(params.id) })),
   ),
   http.get(`${API_URL}/policy`, () => HttpResponse.json(makePolicy())),
+  http.get(`${API_URL}/compliance/:address`, ({ params }) =>
+    HttpResponse.json({
+      address: String(params.address),
+      known: true,
+      compliant: true,
+      frozen: false,
+    }),
+  ),
   http.get(`${API_URL}/agent/instructions`, () =>
     HttpResponse.json({
       instructions: [
