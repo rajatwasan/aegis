@@ -1,9 +1,18 @@
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import App from "../../App";
 import { API_URL } from "../../api/client";
-import { makeMetrics } from "../../test/fixtures";
+import {
+  ANCHOR_ADDRESS,
+  ANCHOR_TX,
+  EXPLORER,
+  makeAnchor,
+  makeLocalAnchor,
+  makeLocalChainStatus,
+  makeMetrics,
+} from "../../test/fixtures";
 import { server } from "../../test/msw";
 import { renderApp } from "../../test/render";
 
@@ -30,11 +39,92 @@ describe("DashboardPage", () => {
     expect(within(bar).getByRole("img", { name: "deny: 1" })).toBeInTheDocument();
   });
 
-  it("shows the last anchor with its transaction", async () => {
+  it("shows the last anchor with a link to track its transaction on-chain", async () => {
     renderApp(<App />, { route: "/" });
     expect(await screen.findByText("batch #1")).toBeInTheDocument();
     expect(screen.getByText("8 records sealed")).toBeInTheDocument();
-    expect(screen.getByTitle(`0x${"ef".repeat(32)}`)).toBeInTheDocument();
+
+    const card = screen.getByTestId("anchor-card");
+    expect(within(card).getByText("base-sepolia")).toBeInTheDocument();
+    expect(within(card).getByText("19482331")).toBeInTheDocument();
+    expect(
+      within(card).getByRole("link", { name: /0xefefefef/ }),
+    ).toHaveAttribute("href", `${EXPLORER}/tx/${ANCHOR_TX}`);
+    expect(
+      within(card).getByRole("link", { name: /AuditAnchor contract/ }),
+    ).toHaveAttribute("href", `${EXPLORER}/address/${ANCHOR_ADDRESS}`);
+  });
+
+  it("anchors on demand and shows the new transaction link", async () => {
+    const fresh = makeAnchor({ batch_id: 7, record_count: 3 });
+    server.use(
+      http.post(`${API_URL}/anchor`, () =>
+        HttpResponse.json({ anchored: true, batch: fresh }),
+      ),
+    );
+    renderApp(<App />, { route: "/" });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Anchor now" }),
+    );
+
+    const card = screen.getByTestId("anchor-card");
+    expect(await within(card).findByText("batch #7")).toBeInTheDocument();
+    expect(within(card).getByText("3 records sealed")).toBeInTheDocument();
+    expect(
+      within(card).getByRole("link", { name: /0xefefefef/ }),
+    ).toHaveAttribute("href", `${EXPLORER}/tx/${ANCHOR_TX}`);
+  });
+
+  it("says so when there is nothing new to anchor", async () => {
+    server.use(
+      http.post(`${API_URL}/anchor`, () =>
+        HttpResponse.json({ anchored: false, batch: makeAnchor() }),
+      ),
+    );
+    renderApp(<App />, { route: "/" });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Anchor now" }),
+    );
+    expect(
+      await screen.findByText(/Nothing new to anchor/),
+    ).toBeInTheDocument();
+  });
+
+  it("surfaces an anchoring failure instead of a silent no-op", async () => {
+    server.use(
+      http.post(`${API_URL}/anchor`, () =>
+        HttpResponse.json({ detail: "no state; run the demo first" }, { status: 503 }),
+      ),
+    );
+    renderApp(<App />, { route: "/" });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Anchor now" }),
+    );
+    expect(
+      await screen.findByText("no state; run the demo first"),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer an explorer link on a local dev chain", async () => {
+    server.use(
+      http.get(`${API_URL}/metrics`, () =>
+        HttpResponse.json(
+          makeMetrics({
+            chain: makeLocalChainStatus(),
+            last_anchor: makeLocalAnchor(),
+          }),
+        ),
+      ),
+    );
+    renderApp(<App />, { route: "/" });
+
+    const card = await screen.findByTestId("anchor-card");
+    expect(await within(card).findByText("anvil · local")).toBeInTheDocument();
+    expect(within(card).getByText(/no public explorer/)).toBeInTheDocument();
+    expect(within(card).queryByRole("link")).not.toBeInTheDocument();
+    // the hash is still shown, just not linked
+    expect(within(card).getByText(/^0xefefefef\.\.\./)).toBeInTheDocument();
   });
 
   it("handles the cold-start empty state", async () => {

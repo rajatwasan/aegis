@@ -61,6 +61,23 @@ class AuditRecordDetail(BaseModel):
     neighbors: list[AuditRecordItem]
 
 
+class AnchorInfo(BaseModel):
+    """One anchored batch, with the coordinates needed to track it on-chain."""
+
+    batch_id: int
+    root: str
+    tx_hash: str | None = None
+    record_count: int
+    chain_id: int | None = None
+    chain_name: str | None = None
+    block_number: int | None = None
+    anchored_at: str | None = None
+    #: block-explorer link to the anchoring transaction (None on a dev chain)
+    tx_url: str | None = None
+    anchor_address: str | None = None
+    anchor_url: str | None = None
+
+
 class VerifyResponse(BaseModel):
     decision_id: str
     proof_ok: bool = Field(alias="PROOF_OK")
@@ -71,6 +88,9 @@ class VerifyResponse(BaseModel):
     merkle_path: list[str] | None = None
     local_root: str | None = None
     onchain_root: str | None = None
+    #: the batch that sealed this record, incl. its explorer link (None if
+    #: the record has not been anchored yet)
+    anchor: AnchorInfo | None = None
 
     model_config = {"populate_by_name": True}
 
@@ -90,13 +110,6 @@ class PolicyResponse(BaseModel):
     rules: list[PolicyRuleView]
 
 
-class AnchorInfo(BaseModel):
-    batch_id: int
-    root: str
-    tx_hash: str | None = None
-    record_count: int
-
-
 class InjectionStats(BaseModel):
     attacks: int
     bypasses: int
@@ -106,8 +119,15 @@ class InjectionStats(BaseModel):
 class ChainStatus(BaseModel):
     configured: bool
     connected: bool
+    #: path-redacted: hosted RPC providers carry their API key in the path
     rpc_url: str | None = None
     chain_id: int | None = None
+    chain_name: str | None = None
+    #: False for a dev chain (anvil) — nothing here is externally verifiable
+    public: bool | None = None
+    explorer_url: str | None = None
+    anchor_address: str | None = None
+    anchor_url: str | None = None
 
 
 class PartyStatus(BaseModel):

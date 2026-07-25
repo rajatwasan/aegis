@@ -1,7 +1,9 @@
 /** Canonical test data, mirroring the shapes the real API produces. */
 
 import type {
+  AnchorInfo,
   AuditRecordItem,
+  ChainStatus,
   DecisionItem,
   Metrics,
   PolicyResponse,
@@ -12,6 +14,9 @@ import type {
 export const TOKEN = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 export const OPERATOR = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 export const ALICE = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+export const ANCHOR_ADDRESS = "0x8464135c8F25Da09e49BC8782676a84730C318bC";
+export const ANCHOR_TX = "0x" + "ef".repeat(32);
+export const EXPLORER = "https://sepolia.basescan.org";
 
 export function makeProposal(overrides: Partial<ProposalRow> = {}): ProposalRow {
   const now = Date.now() / 1000;
@@ -47,21 +52,67 @@ export function makeMetrics(overrides: Partial<Metrics> = {}): Metrics {
     counts_by_effect: { allow: 8, escalate: 3, deny: 1 },
     escalation_rate: 0.25,
     pending_count: 2,
-    last_anchor: {
-      batch_id: 1,
-      root: "cd".repeat(32),
-      tx_hash: "0x" + "ef".repeat(32),
-      record_count: 8,
-    },
+    last_anchor: makeAnchor(),
     injections: { attacks: 49, bypasses: 0, blocked: 49 },
-    chain: {
-      configured: true,
-      connected: true,
-      rpc_url: "http://127.0.0.1:8545",
-      chain_id: 31337,
-    },
+    chain: makeChainStatus(),
     ...overrides,
   };
+}
+
+/** The deployed world: a public testnet, so anchors carry explorer links. */
+export function makeChainStatus(
+  overrides: Partial<ChainStatus> = {},
+): ChainStatus {
+  return {
+    configured: true,
+    connected: true,
+    rpc_url: "https://sepolia.base.org",
+    chain_id: 84532,
+    chain_name: "base-sepolia",
+    public: true,
+    explorer_url: EXPLORER,
+    anchor_address: ANCHOR_ADDRESS,
+    anchor_url: `${EXPLORER}/address/${ANCHOR_ADDRESS}`,
+    ...overrides,
+  };
+}
+
+export function makeAnchor(overrides: Partial<AnchorInfo> = {}): AnchorInfo {
+  return {
+    batch_id: 1,
+    root: "cd".repeat(32),
+    tx_hash: ANCHOR_TX,
+    record_count: 8,
+    chain_id: 84532,
+    chain_name: "base-sepolia",
+    block_number: 19_482_331,
+    anchored_at: new Date(Date.UTC(2026, 6, 24, 3, 15)).toISOString(),
+    tx_url: `${EXPLORER}/tx/${ANCHOR_TX}`,
+    anchor_address: ANCHOR_ADDRESS,
+    anchor_url: `${EXPLORER}/address/${ANCHOR_ADDRESS}`,
+    ...overrides,
+  };
+}
+
+/** A local dev chain: same data, but nothing is publicly verifiable. */
+export function makeLocalChainStatus(): ChainStatus {
+  return makeChainStatus({
+    rpc_url: "http://127.0.0.1:8545",
+    chain_id: 31337,
+    chain_name: "anvil",
+    public: false,
+    explorer_url: null,
+    anchor_url: null,
+  });
+}
+
+export function makeLocalAnchor(): AnchorInfo {
+  return makeAnchor({
+    chain_id: 31337,
+    chain_name: "anvil",
+    tx_url: null,
+    anchor_url: null,
+  });
 }
 
 export function makeDecision(overrides: Partial<DecisionItem> = {}): DecisionItem {
@@ -114,6 +165,7 @@ export function makeVerifyResponse(
     merkle_path: ["11".repeat(32), "22".repeat(32)],
     local_root: "33".repeat(32),
     onchain_root: "33".repeat(32),
+    anchor: makeAnchor({ batch_id: 0 }),
     ...overrides,
   };
 }

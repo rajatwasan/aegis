@@ -3,9 +3,10 @@ import { useAuditRecord, useVerifyDecision } from "../../api/queries";
 import type { AuditRecordItem, VerifyResponse } from "../../api/types";
 import { Page } from "../../components/layout/Page";
 import { Badge } from "../../components/ui/Badge";
+import { ExplorerLink, TxLink } from "../../components/ui/ExplorerLink";
 import { HashChip } from "../../components/ui/Mono";
 import { ErrorState, Skeleton } from "../../components/ui/States";
-import { cn } from "../../lib/format";
+import { cn, relativeTime } from "../../lib/format";
 
 /**
  * One record in its chain neighborhood: canonical JSON, the
@@ -149,6 +150,9 @@ function ChainView({
 
 function VerifyPanel({ result }: { result: VerifyResponse }) {
   const ok = result.PROOF_OK;
+  // where this record's root actually landed on-chain — the link a third
+  // party follows to check the root themselves
+  const anchor = result.anchor;
   return (
     <section
       data-testid="verify-panel"
@@ -157,7 +161,7 @@ function VerifyPanel({ result }: { result: VerifyResponse }) {
         ok ? "border-ok/40 bg-ok-dim/40" : "border-danger/40 bg-danger-dim/40",
       )}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <span
           className={cn(
             "rounded border px-3 py-1 text-lg font-bold tracking-wide",
@@ -175,6 +179,27 @@ function VerifyPanel({ result }: { result: VerifyResponse }) {
           <span className="text-[13px] text-danger">{result.reason}</span>
         )}
       </div>
+
+      {anchor !== null && anchor !== undefined && (
+        <div
+          data-testid="anchor-provenance"
+          className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-faint"
+        >
+          <span>
+            anchored on <span className="text-ink-dim">{anchor.chain_name}</span>
+          </span>
+          {anchor.block_number !== null && anchor.block_number !== undefined && (
+            <span>
+              block <span className="mono text-ink-dim">{anchor.block_number}</span>
+            </span>
+          )}
+          {typeof anchor.anchored_at === "string" && (
+            <span title={anchor.anchored_at}>{relativeTime(anchor.anchored_at)}</span>
+          )}
+          <TxLink txHash={anchor.tx_hash} txUrl={anchor.tx_url} label="anchor tx" />
+          <ExplorerLink url={anchor.anchor_url}>AuditAnchor contract</ExplorerLink>
+        </div>
+      )}
 
       {result.merkle_path !== null && result.merkle_path !== undefined && (
         <div className="mt-3">

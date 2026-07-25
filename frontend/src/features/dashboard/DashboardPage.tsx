@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
-import { useMetrics } from "../../api/queries";
-import type { Metrics } from "../../api/types";
+import { useAnchorRecords, useMetrics } from "../../api/queries";
+import type { AnchorInfo, ChainStatus, Metrics } from "../../api/types";
 import { Page } from "../../components/layout/Page";
 import { Badge } from "../../components/ui/Badge";
+import { ExplorerLink, TxLink } from "../../components/ui/ExplorerLink";
 import { HashChip } from "../../components/ui/Mono";
 import { ErrorState, Skeleton } from "../../components/ui/States";
 import { cn } from "../../lib/format";
@@ -86,36 +87,104 @@ export function DashboardPage() {
           )}
         </section>
 
-        <section className="rounded border border-edge bg-panel p-4">
-          <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-ink-faint">
-            Last anchor
-          </h2>
-          {data === undefined ? (
-            <Skeleton className="h-5 w-64" />
-          ) : data.last_anchor ? (
-            <div className="flex flex-wrap items-center gap-3 text-[13px]">
-              <Badge tone="info">batch #{data.last_anchor.batch_id}</Badge>
-              <span className="text-ink-dim">
-                root <HashChip value={`0x${data.last_anchor.root}`} />
-              </span>
-              {data.last_anchor.tx_hash !== null &&
-                data.last_anchor.tx_hash !== undefined && (
-                  <span className="text-ink-dim">
-                    tx <HashChip value={withHexPrefix(data.last_anchor.tx_hash)} />
-                  </span>
-                )}
-              <span className="text-xs text-ink-faint">
-                {data.last_anchor.record_count} records sealed
-              </span>
-            </div>
-          ) : (
-            <p className="text-[13px] text-ink-faint">
-              Nothing anchored yet — run the demo or anchor from the CLI.
-            </p>
-          )}
-        </section>
+        <AnchorCard
+          anchor={data?.last_anchor ?? null}
+          chain={data?.chain}
+          loading={data === undefined}
+        />
       </div>
     </Page>
+  );
+}
+
+/**
+ * Anchoring, end to end: seal the unanchored records and then track the
+ * resulting transaction on a block explorer. The explorer link is what makes
+ * the audit log checkable by someone who does not trust this server, so when
+ * the chain is a local dev chain we say so instead of implying otherwise.
+ */
+function AnchorCard({
+  anchor,
+  chain,
+  loading,
+}: {
+  anchor: AnchorInfo | null;
+  chain: ChainStatus | undefined;
+  loading: boolean;
+}) {
+  const anchorNow = useAnchorRecords();
+  // the POST answers with the batch it just sealed; /metrics catches up after
+  const latest = anchorNow.data?.batch ?? anchor;
+  const isPublic = chain?.public === true;
+
+  return (
+    <section className="rounded border border-edge bg-panel p-4" data-testid="anchor-card">
+      <div className="mb-2 flex items-center gap-3">
+        <h2 className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
+          Anchoring
+        </h2>
+        {chain !== undefined && (
+          <Badge tone={isPublic ? "info" : "neutral"}>
+            {`${chain.chain_name ?? `chain ${chain.chain_id ?? "?"}`}${
+              isPublic ? "" : " · local"
+            }`}
+          </Badge>
+        )}
+        <button
+          type="button"
+          onClick={() => anchorNow.mutate()}
+          disabled={anchorNow.isPending}
+          className={cn(
+            "ml-auto rounded border border-info/40 bg-info-dim px-3 py-1 text-[13px]",
+            "font-medium text-info hover:bg-info/15",
+            "disabled:cursor-not-allowed disabled:opacity-40",
+          )}
+        >
+          {anchorNow.isPending ? "anchoring…" : "Anchor now"}
+        </button>
+      </div>
+
+      {anchorNow.isError && (
+        <p className="mb-2 text-[13px] text-danger">{anchorNow.error.message}</p>
+      )}
+      {anchorNow.data?.anchored === false && (
+        <p className="mb-2 text-xs text-ink-faint">
+          Nothing new to anchor — every record is already sealed.
+        </p>
+      )}
+
+      {loading ? (
+        <Skeleton className="h-5 w-64" />
+      ) : latest ? (
+        <div className="flex flex-wrap items-center gap-3 text-[13px]">
+          <Badge tone="info">batch #{latest.batch_id}</Badge>
+          <span className="text-ink-dim">
+            root <HashChip value={`0x${latest.root}`} />
+          </span>
+          <TxLink txHash={latest.tx_hash} txUrl={latest.tx_url} />
+          {latest.block_number !== null && latest.block_number !== undefined && (
+            <span className="text-xs text-ink-faint">
+              block <span className="mono">{latest.block_number}</span>
+            </span>
+          )}
+          <span className="text-xs text-ink-faint">
+            {latest.record_count} records sealed
+          </span>
+          {latest.tx_url === null && latest.tx_hash !== null && (
+            <span className="text-xs text-ink-faint">
+              (dev chain — no public explorer)
+            </span>
+          )}
+          <ExplorerLink url={latest.anchor_url} className="text-xs">
+            AuditAnchor contract
+          </ExplorerLink>
+        </div>
+      ) : (
+        <p className="text-[13px] text-ink-faint">
+          Nothing anchored yet — press Anchor now to seal the current records.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -194,8 +263,4 @@ function StatCard({
       )}
     </div>
   );
-}
-
-function withHexPrefix(value: string): string {
-  return value.startsWith("0x") ? value : `0x${value}`;
 }

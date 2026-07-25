@@ -41,10 +41,14 @@ def cmd_anchor(state_dir: Path) -> int:
     if batch is None:
         print("nothing to anchor: all audit records are already anchored")
         return 0
+    view = anchoring.batch_view(anchoring.load_state(state_dir), batch)
     print(
         f"anchored batch {batch['batch_id']}: {len(batch['decision_ids'])} record(s),"
         f" root 0x{batch['root']}"
     )
+    print(f"  chain {view['chain_name']} block {view['block_number']} tx {view['tx_hash']}")
+    if view["tx_url"]:
+        print(f"  track  {view['tx_url']}")
     return 0
 
 

@@ -223,11 +223,17 @@ class TestMetrics:
         assert body["pending_count"] == 1
         assert body["last_anchor"] is None
         assert body["injections"] is None  # report path points nowhere in this fixture
+        # no state.json: nothing is known about a chain, so every field is empty
         assert body["chain"] == {
             "configured": False,
             "connected": False,
             "rpc_url": None,
             "chain_id": None,
+            "chain_name": None,
+            "public": None,
+            "explorer_url": None,
+            "anchor_address": None,
+            "anchor_url": None,
         }
 
     def test_parse_real_eval_report(self) -> None:

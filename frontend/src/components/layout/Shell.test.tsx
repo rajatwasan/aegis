@@ -3,7 +3,13 @@ import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import App from "../../App";
 import { API_URL } from "../../api/client";
-import { makeMetrics } from "../../test/fixtures";
+import {
+  ANCHOR_TX,
+  EXPLORER,
+  makeLocalAnchor,
+  makeLocalChainStatus,
+  makeMetrics,
+} from "../../test/fixtures";
 import { server } from "../../test/msw";
 import { FakeEventSource, renderApp } from "../../test/render";
 
@@ -25,11 +31,36 @@ describe("Shell", () => {
 
   it("shows chain connection, last anchor, and pending count from /metrics", async () => {
     renderApp(<App />);
-    expect(await screen.findByText("chain 31337")).toBeInTheDocument();
     expect(await screen.findByTestId("pending-count")).toHaveTextContent("2");
-    // last anchor root truncates middle in mono (scoped: the dashboard shows it too)
+    // scoped to the bar: the dashboard names the chain and shows the root too
     const statusBar = screen.getByRole("banner");
+    // the chain is named, not just numbered: "base-sepolia" says it is public
+    expect(within(statusBar).getByText("base-sepolia")).toBeInTheDocument();
     expect(within(statusBar).getByText(/0xcdcd.*cdcd/)).toBeInTheDocument();
+    expect(within(statusBar).getByRole("link", { name: /tx/ })).toHaveAttribute(
+      "href",
+      `${EXPLORER}/tx/${ANCHOR_TX}`,
+    );
+  });
+
+  it("marks a local dev chain as local and offers no explorer link", async () => {
+    server.use(
+      http.get(`${API_URL}/metrics`, () =>
+        HttpResponse.json(
+          makeMetrics({
+            chain: makeLocalChainStatus(),
+            last_anchor: makeLocalAnchor(),
+          }),
+        ),
+      ),
+    );
+    renderApp(<App />);
+    expect(await screen.findByText("anvil")).toBeInTheDocument();
+    const statusBar = screen.getByRole("banner");
+    expect(within(statusBar).getByText("local")).toBeInTheDocument();
+    expect(
+      within(statusBar).queryByRole("link", { name: /tx/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows disconnected state when the chain is not configured", async () => {
@@ -42,6 +73,11 @@ describe("Shell", () => {
               connected: false,
               rpc_url: null,
               chain_id: null,
+              chain_name: null,
+              public: null,
+              explorer_url: null,
+              anchor_address: null,
+              anchor_url: null,
             },
             last_anchor: null,
             pending_count: 0,

@@ -1,6 +1,7 @@
 import { useMetrics } from "../../api/queries";
 import { useConnectionStatus } from "../../lib/EventsProvider";
 import { Badge, Dot } from "../ui/Badge";
+import { ExplorerLink } from "../ui/ExplorerLink";
 import { HashChip } from "../ui/Mono";
 import { Skeleton } from "../ui/States";
 
@@ -26,11 +27,16 @@ export function StatusBar() {
           {chain === undefined
             ? "chain"
             : chain.connected
-              ? `chain ${chain.chain_id ?? ""}`
+              ? // name the chain: "base-sepolia" tells a viewer the anchors are
+                // public in a way "chain 84532" does not
+                (chain.chain_name ?? `chain ${chain.chain_id ?? ""}`)
               : chain.configured
                 ? "chain unreachable"
                 : "chain not configured"}
         </span>
+        {chain?.connected === true && chain.public === false && (
+          <Badge tone="neutral">local</Badge>
+        )}
       </div>
 
       <div className="flex items-center gap-2" data-testid="stream-status">
@@ -52,6 +58,7 @@ export function StatusBar() {
             <span className="flex items-center gap-1.5 text-info">
               <span className="mono">#{anchor.batch_id}</span>
               <HashChip value={`0x${anchor.root}`} />
+              <ExplorerLink url={anchor.tx_url}>tx</ExplorerLink>
             </span>
           ) : (
             <span className="text-ink-faint">none</span>

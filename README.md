@@ -152,6 +152,12 @@ executed transfer → PROOF OK.
 - **Provable history.** Every decision is signed, hash-chained, and anchored;
   `aegis verify` recomputes the hash and Merkle proof and checks it against the
   on-chain root.
+- **Independently checkable.** Point the runtime at a public chain
+  (`AEGIS_RPC_URL` + a funded `AEGIS_DEPLOYER_KEY`, e.g. Base Sepolia) and every
+  anchor is a transaction on a block explorer — the console links to it from the
+  proof, so a viewer can confirm the root without trusting the server. On a local
+  dev chain there is no explorer and the console says so
+  ([ADR 005](docs/adr/005-public-testnet-anchoring.md)).
 
 ## Adversarial evaluation
 

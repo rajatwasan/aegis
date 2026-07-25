@@ -13,9 +13,11 @@ Chain state (RPC url, contract addresses, audit-log paths) comes from
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from aegis import chains
 from aegis.agent import ChainClient
 from aegis.audit import AuditLog, AuditSigner, MerkleTree, canonical_json
 from aegis.audit.log import _hash_record
@@ -71,15 +73,47 @@ def anchor_unanchored(state_dir: Path) -> dict[str, Any] | None:
     chain, contract = anchor_contract(state)
     receipt = chain.call_tx(contract.functions.anchor(tree.root, batch_id))
 
+    # keep the coordinates a third party needs to find this tx again: which
+    # chain, which block, when. The explorer link is derived from them.
     batch = {
         "batch_id": batch_id,
         "root": tree.root.hex(),
-        "tx_hash": receipt["transactionHash"].hex(),
+        "tx_hash": chains.hex0x(receipt["transactionHash"].hex()),
+        "chain_id": state.get("chain_id"),
+        "block_number": receipt.get("blockNumber"),
+        "anchored_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "decision_ids": [r["decision_id"] for r in fresh],
     }
     anchors.append(batch)
     save_anchors(state_dir, anchors)
     return batch
+
+
+def batch_view(state: dict[str, Any], batch: dict[str, Any]) -> dict[str, Any]:
+    """Present one anchored batch: on-chain facts plus explorer links.
+
+    Batches written before the chain/block fields existed (and those anchored
+    on a chain the state file no longer points at) still render — missing
+    coordinates simply yield no link.
+    """
+    chain_id = batch.get("chain_id") or state.get("chain_id")
+    explorer = state.get("explorer_url") or chains.explorer_from_env()
+    meta = chains.chain_meta(chain_id, explorer)
+    tx_hash = chains.hex0x(batch.get("tx_hash"))
+    anchor_address = state.get("anchor_address")
+    return {
+        "batch_id": batch["batch_id"],
+        "root": batch["root"],
+        "tx_hash": tx_hash,
+        "record_count": len(batch["decision_ids"]),
+        "chain_id": chain_id,
+        "chain_name": meta.name,
+        "block_number": batch.get("block_number"),
+        "anchored_at": batch.get("anchored_at"),
+        "tx_url": chains.tx_url(chain_id, tx_hash, explorer),
+        "anchor_address": anchor_address,
+        "anchor_url": chains.address_url(chain_id, anchor_address, explorer),
+    }
 
 
 def _fail(decision_id: str, reason: str, **extra: Any) -> dict[str, Any]:
@@ -150,12 +184,19 @@ def verify_decision(
 
 
 def verify_decision_in_dir(state_dir: Path, decision_id: str) -> dict[str, Any]:
-    """One-shot verification: load state, anchors, and records from state_dir."""
+    """One-shot verification: load state, anchors, and records from state_dir.
+
+    The result carries the anchoring batch's on-chain coordinates so the caller
+    can link straight to the transaction that sealed this record.
+    """
     state = load_state(state_dir)
     anchors = load_anchors(state_dir)
     records_by_id = {r["decision_id"]: r for r in load_records(state)}
-    if not any(decision_id in b["decision_ids"] for b in anchors):
+    batch = next((b for b in anchors if decision_id in b["decision_ids"]), None)
+    if batch is None:
         record = records_by_id.get(decision_id)
-        return _fail(decision_id, "not in any anchored batch", record=record)
+        return _fail(decision_id, "not in any anchored batch", record=record, anchor=None)
     _, contract = anchor_contract(state)
-    return verify_decision(anchors, contract, records_by_id, decision_id)
+    result = verify_decision(anchors, contract, records_by_id, decision_id)
+    result["anchor"] = batch_view(state, batch)
+    return result

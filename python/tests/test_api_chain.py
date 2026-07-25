@@ -100,6 +100,56 @@ class TestAnchorAndVerify:
         assert metrics["chain"]["connected"] is True
         assert metrics["chain"]["chain_id"] == 31337
 
+    def test_anchor_records_where_to_find_the_tx(self, chain_app, client: TestClient) -> None:
+        """The batch carries chain/block coordinates; anvil has no explorer."""
+        records = seed_records(chain_app)
+        batch = client.post("/anchor").json()["batch"]
+
+        assert batch["chain_id"] == 31337
+        assert batch["chain_name"] == "anvil"
+        assert batch["block_number"] > 0
+        assert batch["anchored_at"].startswith("20")
+        assert batch["tx_hash"].startswith("0x")
+        assert batch["anchor_address"]
+        assert batch["tx_url"] is None  # a dev chain has nothing to link to
+
+        # verifying reports the same batch, so the console can link from a proof
+        verify = client.get(f"/audit/verify/{records[0]['decision_id']}").json()
+        assert verify["anchor"]["tx_hash"] == batch["tx_hash"]
+        assert verify["anchor"]["block_number"] == batch["block_number"]
+
+        chain = client.get("/metrics").json()["chain"]
+        assert chain["chain_name"] == "anvil"
+        assert chain["public"] is False
+        assert chain["explorer_url"] is None
+        assert chain["anchor_url"] is None
+
+    def test_explorer_links_appear_when_the_chain_has_one(
+        self, chain_app, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A public chain (or an explorer override) makes anchors trackable."""
+        records = seed_records(chain_app, n=1)
+        monkeypatch.setenv("AEGIS_EXPLORER_URL", "https://sepolia.basescan.org")
+
+        batch = client.post("/anchor").json()["batch"]
+        assert batch["tx_url"] == f"https://sepolia.basescan.org/tx/{batch['tx_hash']}"
+        assert batch["anchor_url"] == (
+            f"https://sepolia.basescan.org/address/{batch['anchor_address']}"
+        )
+
+        verify = client.get(f"/audit/verify/{records[0]['decision_id']}").json()
+        assert verify["PROOF_OK"] is True
+        assert verify["anchor"]["tx_url"] == batch["tx_url"]
+
+        chain = client.get("/metrics").json()["chain"]
+        assert chain["explorer_url"] == "https://sepolia.basescan.org"
+        assert chain["anchor_url"] == batch["anchor_url"]
+
+    def test_unanchored_verify_has_no_anchor_block(self, chain_app, client: TestClient) -> None:
+        records = seed_records(chain_app, n=1)
+        verify = client.get(f"/audit/verify/{records[0]['decision_id']}").json()
+        assert verify["anchor"] is None
+
     def test_verify_unanchored_record_fails_cleanly(self, chain_app, client: TestClient) -> None:
         records = seed_records(chain_app, n=1)
         verify = client.get(f"/audit/verify/{records[0]['decision_id']}").json()

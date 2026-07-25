@@ -4,7 +4,12 @@ import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import App from "../../App";
 import { API_URL } from "../../api/client";
-import { makeVerifyResponse } from "../../test/fixtures";
+import {
+  ANCHOR_ADDRESS,
+  ANCHOR_TX,
+  EXPLORER,
+  makeVerifyResponse,
+} from "../../test/fixtures";
 import { server } from "../../test/msw";
 import { renderApp } from "../../test/render";
 
@@ -49,6 +54,52 @@ describe("AuditRecordPage", () => {
     expect(within(panel).getByText("level 0")).toBeInTheDocument();
     expect(within(panel).getByText("level 1")).toBeInTheDocument();
     expect(within(panel).getByText("roots match")).toBeInTheDocument();
+  });
+
+  it("links the proof to the anchoring transaction on-chain", async () => {
+    renderApp(<App />, { route: "/audit/rec-1" });
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", { name: "Verify against chain" }),
+    );
+
+    const provenance = await screen.findByTestId("anchor-provenance");
+    expect(within(provenance).getByText("base-sepolia")).toBeInTheDocument();
+    expect(within(provenance).getByText("19482331")).toBeInTheDocument();
+    expect(
+      within(provenance).getByRole("link", { name: /anchor tx/ }),
+    ).toHaveAttribute("href", `${EXPLORER}/tx/${ANCHOR_TX}`);
+    expect(
+      within(provenance).getByRole("link", { name: /AuditAnchor contract/ }),
+    ).toHaveAttribute("href", `${EXPLORER}/address/${ANCHOR_ADDRESS}`);
+  });
+
+  it("omits the anchor block for a record that is not anchored yet", async () => {
+    server.use(
+      http.get(`${API_URL}/audit/verify/:id`, () =>
+        HttpResponse.json(
+          makeVerifyResponse({
+            PROOF_OK: false,
+            reason: "not in any anchored batch",
+            batch_id: null,
+            merkle_path: null,
+            local_root: null,
+            onchain_root: null,
+            anchor: null,
+          }),
+        ),
+      ),
+    );
+    renderApp(<App />, { route: "/audit/rec-1" });
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", { name: "Verify against chain" }),
+    );
+
+    expect(
+      await screen.findByText("not in any anchored batch"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("anchor-provenance")).not.toBeInTheDocument();
   });
 
   it("renders PROOF FAIL with the reason", async () => {

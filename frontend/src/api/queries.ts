@@ -137,6 +137,21 @@ export function useVerifyDecision() {
   });
 }
 
+/**
+ * Seal every unanchored audit record into one Merkle batch and put the root
+ * on-chain. Resolves with the batch — including the explorer url for the
+ * transaction, which is the only way a third party can check the root.
+ */
+export function useAnchorRecords() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/anchor")),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["metrics"] });
+    },
+  });
+}
+
 export function useRunAgent() {
   return useMutation({
     mutationFn: (instruction: string) =>

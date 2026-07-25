@@ -187,4 +187,25 @@ gains the console API/event bus/SSE + browser components in diagram and
 prose. Final: make test green (50 forge + 131 py + 45 fe), make demo exit 0,
 make e2e 1 passed, ruff + eslint + tsc clean, no servers left running.
 
+**Public-chain anchoring (2026-07-25):** Anchors can now land on a public chain
+so "PROOF OK" is checkable by someone who does not trust the server. New
+`aegis.chains`: chain id -> name + explorer base (Base Sepolia 84532, Sepolia,
+Arbitrum/Optimism/Polygon testnets, mainnets), `tx_url`/`address_url` builders,
+`AEGIS_EXPLORER_URL` override, and `redact_rpc_url` so `/metrics` cannot leak a
+keyed provider url. `anchors.json` batches now record chain_id, block_number and
+anchored_at; `anchoring.batch_view` turns a batch into the presented shape with
+tx/contract links, shared by `POST /anchor`, `/metrics.last_anchor`,
+`/audit/verify/{id}.anchor` (new nested field) and `aegis anchor`. devstack takes
+`--operator-key`/`--reuse`, detects chain id from the RPC, guards on operator
+balance, and reuses a live deployment instead of paying to redeploy;
+`demo.deploy` takes operator + chain_id (guardian EIP-712 domain must match the
+live chain, and the funded deployer must be registry owner + a compliant party).
+deploy/start.sh tries the public chain first and falls back to a local anvil with
+a WARNING. Console: dashboard Anchoring card with "Anchor now" + tx/contract
+explorer links, verify panel gains an anchor-provenance row (chain, block, when,
+anchor tx), status bar names the chain and badges a dev chain `local`; no link is
+ever rendered without a server-supplied url. ADR 005; DEPLOY.md section 1b.
+Suite: 154 py (16 new: chains + anchor links) + 52 fe (7 new), ruff + eslint +
+tsc clean. Base Sepolia deploy pending a funded key.
+
 FRONTEND_COMPLETE

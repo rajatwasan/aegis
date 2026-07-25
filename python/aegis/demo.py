@@ -55,28 +55,40 @@ def _rule(text: str) -> None:
     print(f"\n\033[1m{text}\033[0m")
 
 
-def deploy(chain: ChainClient) -> dict[str, Any]:
-    registry = chain.deploy("ComplianceRegistry", OPERATOR)
+def deploy(
+    chain: ChainClient, *, operator: str | None = None, chain_id: int = CHAIN_ID
+) -> dict[str, Any]:
+    """Deploy the suite and seed a world: compliant parties, supply, one freeze.
+
+    ``operator`` defaults to anvil's account 0 for the local demo; a public-chain
+    deployment passes its own funded address, which must own the registry (it is
+    the account that writes claims) and hold the minted supply. ``chain_id`` goes
+    into the guardian's EIP-712 domain, so it must match the live chain or
+    on-chain signature checks reject every authorization.
+    """
+    operator = operator or OPERATOR
+    registry = chain.deploy("ComplianceRegistry", operator)
     token = chain.deploy(
-        "GuardedToken", "Aegis Guarded", "AGD", GUARDIAN, OPERATOR, registry.address, THRESHOLD
+        "GuardedToken", "Aegis Guarded", "AGD", GUARDIAN, operator, registry.address, THRESHOLD
     )
-    anchor = chain.deploy("AuditAnchor", OPERATOR)
+    anchor = chain.deploy("AuditAnchor", operator)
     print(f"  registry   {registry.address}")
     print(f"  token      {token.address}")
     print(f"  anchor     {anchor.address}")
 
     kyc_topic = registry.functions.TOPIC_KYC().call()
-    for i in range(4):
-        chain.call_tx(registry.functions.setClaim(ACCOUNTS[i], kyc_topic, True, 0))
+    compliant = [operator, *(ACCOUNTS[i] for i in range(4) if ACCOUNTS[i] != operator)]
+    for party in compliant:
+        chain.call_tx(registry.functions.setClaim(party, kyc_topic, True, 0))
 
-    signer = GuardianSigner(KEYS[9], CHAIN_ID)
+    signer = GuardianSigner(KEYS[9], chain_id)
     now = int(time.time())
     mint_auth = build_authorization(
         decision_id="demo-mint-operator",
         operation=2,
         token=token.address,
         from_addr="0x" + "0" * 40,
-        to=OPERATOR,
+        to=operator,
         asset_class=0,
         amount=1_000_000,
         policy_hash="00" * 32,

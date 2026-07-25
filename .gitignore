@@ -14,3 +14,7 @@ audit.jsonl
 *.key
 run.log
 loop.out
+.vercel
+.env*
+# local Claude Code state: settings.local.json and linked worktrees
+.claude/

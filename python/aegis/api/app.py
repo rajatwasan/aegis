@@ -28,7 +28,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from aegis import anchoring
+from aegis import anchoring, chains
 from aegis.anchoring import StateError
 from aegis.api.agent_runner import AgentRunner, UnknownInstructionError, canned_instructions
 from aegis.api.config import ApiConfig, load_chain_state
@@ -183,12 +183,8 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
             raise HTTPException(503, str(exc)) from exc
         if batch is None:
             return AnchorResponse(anchored=False, batch=_last_anchor())
-        info = AnchorInfo(
-            batch_id=batch["batch_id"],
-            root=batch["root"],
-            tx_hash=batch["tx_hash"],
-            record_count=len(batch["decision_ids"]),
-        )
+        state = anchoring.load_state(state_dir)
+        info = AnchorInfo(**anchoring.batch_view(state, batch))
         bus.publish("anchor.created", info.model_dump())
         return AnchorResponse(anchored=True, batch=info)
 
@@ -240,27 +236,34 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
             res = httpx.post(
                 state["rpc_url"],
                 json={"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []},
-                timeout=1.0,
+                timeout=2.0,
             )
             connected = res.status_code == 200
             chain_id = int(res.json()["result"], 16)
         except (httpx.HTTPError, KeyError, ValueError):
             pass
+        # the live chain id wins over state.json: it is what anchors land on
+        explorer = state.get("explorer_url") or chains.explorer_from_env()
+        meta = chains.chain_meta(chain_id, explorer)
+        anchor_address = state.get("anchor_address")
         return ChainStatus(
-            configured=True, connected=connected, rpc_url=state["rpc_url"], chain_id=chain_id
+            configured=True,
+            connected=connected,
+            rpc_url=chains.redact_rpc_url(state["rpc_url"]),
+            chain_id=chain_id,
+            chain_name=meta.name,
+            public=meta.public,
+            explorer_url=meta.explorer_url,
+            anchor_address=anchor_address,
+            anchor_url=chains.address_url(chain_id, anchor_address, explorer),
         )
 
     def _last_anchor() -> AnchorInfo | None:
         anchors = anchoring.load_anchors(state_dir)
         if not anchors:
             return None
-        last = anchors[-1]
-        return AnchorInfo(
-            batch_id=last["batch_id"],
-            root=last["root"],
-            tx_hash=last.get("tx_hash"),
-            record_count=len(last["decision_ids"]),
-        )
+        state = load_chain_state(state_dir) or {}
+        return AnchorInfo(**anchoring.batch_view(state, anchors[-1]))
 
     @app.get("/metrics", response_model=MetricsResponse)
     def get_metrics() -> MetricsResponse:

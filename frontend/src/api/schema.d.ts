@@ -308,16 +308,33 @@ export interface components {
             /** Status */
             status: string;
         };
-        /** AnchorInfo */
+        /**
+         * AnchorInfo
+         * @description One anchored batch, with the coordinates needed to track it on-chain.
+         */
         AnchorInfo: {
+            /** Anchor Address */
+            anchor_address?: string | null;
+            /** Anchor Url */
+            anchor_url?: string | null;
+            /** Anchored At */
+            anchored_at?: string | null;
             /** Batch Id */
             batch_id: number;
+            /** Block Number */
+            block_number?: number | null;
+            /** Chain Id */
+            chain_id?: number | null;
+            /** Chain Name */
+            chain_name?: string | null;
             /** Record Count */
             record_count: number;
             /** Root */
             root: string;
             /** Tx Hash */
             tx_hash?: string | null;
+            /** Tx Url */
+            tx_url?: string | null;
         };
         /** AnchorResponse */
         AnchorResponse: {
@@ -390,12 +407,22 @@ export interface components {
         };
         /** ChainStatus */
         ChainStatus: {
+            /** Anchor Address */
+            anchor_address?: string | null;
+            /** Anchor Url */
+            anchor_url?: string | null;
             /** Chain Id */
             chain_id?: number | null;
+            /** Chain Name */
+            chain_name?: string | null;
             /** Configured */
             configured: boolean;
             /** Connected */
             connected: boolean;
+            /** Explorer Url */
+            explorer_url?: string | null;
+            /** Public */
+            public?: boolean | null;
             /** Rpc Url */
             rpc_url?: string | null;
         };
@@ -549,6 +576,7 @@ export interface components {
         VerifyResponse: {
             /** Proof Ok */
             PROOF_OK: boolean;
+            anchor?: components["schemas"]["AnchorInfo"] | null;
             /** Batch Id */
             batch_id?: number | null;
             /** Decision Id */

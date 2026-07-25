@@ -56,10 +56,77 @@
         "type": "object"
       },
       "AnchorInfo": {
+        "description": "One anchored batch, with the coordinates needed to track it on-chain.",
         "properties": {
+          "anchor_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Address"
+          },
+          "anchor_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Url"
+          },
+          "anchored_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchored At"
+          },
           "batch_id": {
             "title": "Batch Id",
             "type": "integer"
+          },
+          "block_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Number"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id"
+          },
+          "chain_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Name"
           },
           "record_count": {
             "title": "Record Count",
@@ -79,6 +146,17 @@
               }
             ],
             "title": "Tx Hash"
+          },
+          "tx_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tx Url"
           }
         },
         "required": [
@@ -272,6 +350,28 @@
       },
       "ChainStatus": {
         "properties": {
+          "anchor_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Address"
+          },
+          "anchor_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor Url"
+          },
           "chain_id": {
             "anyOf": [
               {
@@ -283,6 +383,17 @@
             ],
             "title": "Chain Id"
           },
+          "chain_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Name"
+          },
           "configured": {
             "title": "Configured",
             "type": "boolean"
@@ -290,6 +401,28 @@
           "connected": {
             "title": "Connected",
             "type": "boolean"
+          },
+          "explorer_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explorer Url"
+          },
+          "public": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public"
           },
           "rpc_url": {
             "anyOf": [
@@ -701,6 +834,16 @@
           "PROOF_OK": {
             "title": "Proof Ok",
             "type": "boolean"
+          },
+          "anchor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnchorInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "batch_id": {
             "anyOf": [
