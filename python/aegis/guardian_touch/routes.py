@@ -182,11 +182,13 @@ def mount_guardian_touch(app: FastAPI, config: GuardianTouchConfig | None = None
             "client_data_json": response.get("clientDataJSON"),
             "sign_count": verification.new_sign_count,
         }
+        # stash BEFORE routing: the audit record written inside approve/reject
+        # embeds this as human_presence, hashed and signed with the payload
+        store.set_proposal_assertion(proposal_id, json.dumps(assertion))
         action = ActionIn(approver=f"passkey:{credential_id[:8]}", comment=body.comment)
         result = (
             approve(proposal_id, action)
             if body.action == "approve"
             else reject(proposal_id, action)
         )
-        store.set_proposal_assertion(proposal_id, json.dumps(assertion))
         return {**result, "passkey_assertion": assertion}

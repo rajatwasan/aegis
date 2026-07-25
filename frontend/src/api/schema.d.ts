@@ -431,6 +431,10 @@ export interface components {
             human_action?: {
                 [key: string]: unknown;
             } | null;
+            /** Human Presence */
+            human_presence?: {
+                [key: string]: unknown;
+            } | null;
             /** Index */
             index: number;
             /** Policy Result */
