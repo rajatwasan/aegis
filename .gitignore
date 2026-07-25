@@ -14,3 +14,5 @@ audit.jsonl
 *.key
 run.log
 loop.out
+.vercel
+.env*

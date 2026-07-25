@@ -6,6 +6,7 @@ import { AuditPage } from "./features/audit/AuditPage";
 import { AuditRecordPage } from "./features/audit/AuditRecordPage";
 import { ConsolePage } from "./features/console/ConsolePage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
+import { GuardianPage } from "./features/guardian/GuardianPage";
 import { PolicyPage } from "./features/policy/PolicyPage";
 
 export default function App() {
@@ -20,6 +21,8 @@ export default function App() {
         <Route path="policy" element={<PolicyPage />} />
         <Route path="console" element={<ConsolePage />} />
       </Route>
+      {/* mobile-first, outside the desktop shell */}
+      <Route path="guardian" element={<GuardianPage />} />
     </Routes>
   );
 }

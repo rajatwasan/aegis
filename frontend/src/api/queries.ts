@@ -12,7 +12,7 @@ import {
 import { api } from "./client";
 import { asProposalRow, asProposalRows, type ProposalRow } from "./types";
 
-async function unwrap<T>(
+export async function unwrap<T>(
   promise: Promise<{ data?: T; error?: unknown; response: Response }>,
 ): Promise<T> {
   const { data, error, response } = await promise;
