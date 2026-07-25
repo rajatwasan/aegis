@@ -114,3 +114,14 @@ You've hit your session limit · resets 4:50am (America/Los_Angeles)
 You've hit your session limit · resets 4:50am (America/Los_Angeles)
 [loop] max runs reached
 [loop] frontend session 1 Sun Jul 12 13:27:42 PDT 2026
+All frontend milestones are complete — `FRONTEND_COMPLETE` is the final line of PROGRESS.md, and every milestone was committed green.
+
+**What happened this session:**
+
+- **F1 (finished in-progress work):** The scaffold from a prior session was mostly done but uncommitted and missing the CI node job. I verified it (`make frontend-build` + full `make test` green), added the frontend job to `.github/workflows/ci.yml` (install, lint, typecheck, test, build), and committed.
+- **F2 — Approvals queue:** Pending escalations newest-first with live SSE updates, ticking TTL countdowns that decay expired rows out, and a decision drawer showing the full proposal, matched policy rules with human-readable conditions + policyHash, dual-control progress, and approve/reject with required comment and optimistic rollback. This needed one small backend addition — `GET /compliance/{address}` — because F2 requires both parties' on-chain standing and no F0 endpoint exposed it; FRONTEND.md's stack rules prefer backend RPC over client-side viem, so I recorded the reasoning in ADR 003. Also shipped the Policy screen (rules, allowlist, raw yaml + hash).
+- **F3 — Activity + Audit:** A chronological feed merging `/decisions` with live `agent.step` events, filterable by effect and operation; a paginated audit table; and a record view with the hash-chain neighborhood (visual prev_hash links), canonical JSON, and one-click verification rendering the Merkle path, root comparison, and a large PROOF OK/FAIL badge.
+- **F4 — Console + Dashboard:** The whole HITL loop on one screen — canned-instruction chips post to `/agent/run`, steps stream in on the left, escalations appear on the right with inline approve; plus a landing dashboard with stat cards, a decisions-by-effect bar in the status color language, and the blocked-injection count.
+- **F5 — E2E + docs:** j/k row navigation and a/r shortcuts on the approvals queue; a Playwright smoke test (`make e2e`) that boots the full stack via `scripts/dev-stack.sh`, drives instruction → escalation → approval → executed transfer → **PROOF OK**, and captures the four screenshots now embedded in the README's new Guardian Console section. It uses the machine's installed Chrome (`channel: "chrome"`), so nothing was downloaded outside the npm registry. architecture.md gained the console API / event bus / SSE / browser components.
+
+**Final state:** 50 forge + 131 python + 45 frontend tests green, `make demo` exits 0, e2e passes in ~7s with clean teardown (no servers left running), ruff/eslint/tsc all clean. Six commits F0→F5 on `main`, no existing test ever broken.

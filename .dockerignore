@@ -1,0 +1,14 @@
+.git
+.venv
+.aegis
+.ruff_cache
+.coverage
+**/__pycache__
+frontend/node_modules
+frontend/dist
+frontend/test-results
+contracts/out
+contracts/cache
+run.log
+loop.out
+nohup.out

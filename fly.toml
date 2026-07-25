@@ -1,0 +1,27 @@
+# Aegis public demo — anvil + API in one Fly machine.
+# Deploy from repo root:  fly deploy
+# After the Vercel URL exists:
+#   fly secrets set AEGIS_CORS_ORIGINS=https://<your-app>.vercel.app
+
+app = "aegis-guardian"        # change if the name is taken: fly apps create <name>
+primary_region = "sjc"        # closest to Fort Mason
+
+[build]
+  dockerfile = "deploy/Dockerfile"
+
+[env]
+  AEGIS_API_HOST = "0.0.0.0"
+  AEGIS_API_PORT = "8080"
+  AEGIS_STATE_DIR = "/data/aegis"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Keep the machine alive all night — a cold start mid-demo would reset the chain.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "1gb"
