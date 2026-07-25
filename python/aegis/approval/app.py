@@ -14,6 +14,7 @@ audit record (AGENTS.md C4, C6, I2; spec W2, decision D1).
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Annotated, Any, Literal
 
@@ -113,7 +114,30 @@ def create_app(config: ApprovalConfig | None = None, bus: EventBus | None = None
             policy_result=row["proposal"].get("policy_result", {}),
             human_action=human_action,
             decision_id=row["decision_id"],
+            human_presence=_human_presence(row),
         )
+
+    def _human_presence(row: dict[str, Any]) -> dict[str, Any] | None:
+        """Passkey evidence stashed by /guardian/decide, or None (console path).
+
+        Verified once at decide time — from here on it is evidence, embedded
+        in the audit record before hashing/signing so the chain covers it.
+        """
+        raw = row.get("passkey_assertion")
+        if not raw:
+            return None
+        try:
+            assertion = json.loads(raw) if isinstance(raw, str) else raw
+        except json.JSONDecodeError:
+            return None
+        fields = (
+            "credential_id",
+            "sign_count",
+            "signature",
+            "authenticator_data",
+            "client_data_json",
+        )
+        return {k: assertion.get(k) for k in fields}
 
     def _public(row: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -126,6 +150,7 @@ def create_app(config: ApprovalConfig | None = None, bus: EventBus | None = None
             "signature": row["signature"],
             "created_at": row["created_at"],
             "expires_at": row["expires_at"],
+            "human_presence": _human_presence(row),
         }
 
     # ------------------------------------------------------------ resolver

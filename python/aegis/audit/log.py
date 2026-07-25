@@ -47,8 +47,15 @@ class AuditLog:
         human_action: dict[str, Any] | None = None,
         decision_id: str | None = None,
         ts: str | None = None,
+        human_presence: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Write one record, chaining it to the current tail. Returns the record."""
+        """Write one record, chaining it to the current tail. Returns the record.
+
+        ``human_presence`` is optional passkey evidence (verified once at
+        decide time). When present it joins the payload BEFORE hashing and
+        signing, so the chain, Ed25519 signature, and Merkle proofs cover it
+        without any change to verification; records without it are unchanged.
+        """
         records = self.records()
         prev_hash = records[-1]["record_hash"] if records else GENESIS_HASH
         record: dict[str, Any] = {
@@ -60,6 +67,8 @@ class AuditLog:
             "human_action": human_action,
             "prev_hash": prev_hash,
         }
+        if human_presence is not None:
+            record["human_presence"] = human_presence
         record["record_hash"] = _hash_record(record)
         record["signature"] = self.signer.sign_hex(record["record_hash"].encode())
         with self.path.open("a") as fh:

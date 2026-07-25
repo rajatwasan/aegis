@@ -261,6 +261,18 @@
             ],
             "title": "Human Action"
           },
+          "human_presence": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Human Presence"
+          },
           "index": {
             "title": "Index",
             "type": "integer"

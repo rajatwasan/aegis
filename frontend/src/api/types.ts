@@ -45,6 +45,27 @@ export interface ApprovalEntry {
   ts: number;
 }
 
+/** Passkey evidence embedded in a record at decide time (never re-verified). */
+export interface HumanPresence {
+  credential_id: string;
+  sign_count: number;
+  signature: string;
+  authenticator_data: string;
+  client_data_json: string;
+}
+
+export function asHumanPresence(value: unknown): HumanPresence | null {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "credential_id" in value &&
+    typeof (value as { credential_id: unknown }).credential_id === "string"
+  ) {
+    return value as HumanPresence;
+  }
+  return null;
+}
+
 export interface ProposalRow {
   decision_id: string;
   status: "pending" | "approved" | "rejected" | "expired";
@@ -55,6 +76,7 @@ export interface ProposalRow {
   signature: string | null;
   created_at: number;
   expires_at: number;
+  human_presence?: HumanPresence | null;
 }
 
 export function asProposalRow(value: unknown): ProposalRow {

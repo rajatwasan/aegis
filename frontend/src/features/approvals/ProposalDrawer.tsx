@@ -6,8 +6,9 @@ import {
   useProposal,
   useRejectProposal,
 } from "../../api/queries";
-import { asProposalRow, type ProposalRow } from "../../api/types";
+import { asHumanPresence, asProposalRow, type ProposalRow } from "../../api/types";
 import { Badge, StatusBadge } from "../../components/ui/Badge";
+import { HumanPresenceBadge } from "../../components/ui/HumanPresence";
 import { Amount, HashChip } from "../../components/ui/Mono";
 import { Countdown, TimeAgo } from "../../components/ui/Time";
 import { ErrorState, Skeleton } from "../../components/ui/States";
@@ -95,6 +96,7 @@ function DrawerBody({
   onClose: () => void;
 }) {
   const policyResult = row.proposal.policy_result;
+  const presence = asHumanPresence(row.human_presence);
 
   return (
     <>
@@ -110,6 +112,12 @@ function DrawerBody({
           expires <Countdown expiresAt={row.expires_at} />
         </span>
       </header>
+
+      {presence !== null && (
+        <div className="border-b border-edge px-5 py-3">
+          <HumanPresenceBadge presence={presence} />
+        </div>
+      )}
 
       <Section title="Proposal">
         <dl className="grid grid-cols-[7rem_1fr] gap-y-1.5 text-[13px]">
