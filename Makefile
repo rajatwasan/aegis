@@ -11,7 +11,7 @@ PYTEST:= $(VENV)/bin/pytest
 setup:
 	python3 -m venv $(VENV)
 	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements.lock || $(PIP) install langgraph langchain-core fastapi uvicorn "pydantic>=2" "web3>=7" eth-account PyYAML cryptography httpx pytest pytest-cov ruff mcp
+	$(PIP) install -r requirements.lock || $(PIP) install langgraph langchain-core fastapi uvicorn "pydantic>=2" "web3>=7" eth-account PyYAML cryptography httpx pytest pytest-cov ruff mcp webauthn
 	$(PIP) install -e python/
 	cd contracts && forge install
 
