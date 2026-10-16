@@ -34,7 +34,14 @@ def build_graph(llm: LLMProvider, runtime: AegisRuntime) -> Any:
         if not instructions:
             return {"action": None}
         instruction = instructions.pop(0)
-        action = llm.next_action(instruction, {"operator": runtime.chain.operator_address})
+        # the model sees who it acts as, which token it may propose against,
+        # and what already happened; it never sees a key or a credential
+        context = {
+            "operator": runtime.chain.operator_address,
+            "token": getattr(runtime.token, "address", None),
+            "results": list(state.get("results", [])),
+        }
+        action = llm.next_action(instruction, context)
         return {"instructions": instructions, "action": action}
 
     def act(state: AgentState) -> AgentState:
@@ -47,7 +54,9 @@ def build_graph(llm: LLMProvider, runtime: AegisRuntime) -> Any:
             return {"results": results, "pending_decision_id": None}
 
         if tool == "done":
-            return {"results": results, "pending_decision_id": None}
+            # done ends the run: a real provider is asked once per remaining
+            # instruction slot, so clearing the queue is how it stops
+            return {"results": results, "pending_decision_id": None, "instructions": []}
         if tool == "check_compliance":
             results.append(
                 {"status": "ok", "tool": tool, "value": runtime.check_compliance(args.address)}

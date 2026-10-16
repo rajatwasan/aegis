@@ -102,6 +102,21 @@ class TestCors:
         assert res.headers["access-control-allow-origin"] == "http://example.test"
 
 
+class TestAgentMode:
+    def test_instructions_endpoint_reports_mode(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("AEGIS_LLM", raising=False)
+        assert client.get("/agent/instructions").json()["mode"] == "mock"
+        monkeypatch.setenv("AEGIS_LLM", "anthropic")
+        # reporting the mode needs no key: the provider is built per run, not here
+        assert client.get("/agent/instructions").json()["mode"] == "anthropic"
+        monkeypatch.setenv("AEGIS_LLM", "something-else")
+        res = client.get("/agent/instructions")
+        assert res.status_code == 503
+        assert "not supported" in res.json()["detail"]
+
+
 class TestBusEvents:
     def test_proposal_lifecycle_emits_events(self, app, client: TestClient) -> None:
         bus = app.state.bus
@@ -254,6 +269,7 @@ class TestMetrics:
 class TestAgentInstructions:
     def test_canned_instruction_chips(self, client: TestClient) -> None:
         body = client.get("/agent/instructions").json()
+        assert body["mode"] == "mock"  # W3: the console is told which provider runs
         chips = [c["instruction"] for c in body["instructions"]]
         assert len(chips) == 3
         assert "Send 50,000 AGD to the treasury desk" in chips

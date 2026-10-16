@@ -52,7 +52,12 @@ export function ConsolePage() {
     <Page
       title="Console"
       subtitle="instruct the agent, watch the gate act"
-      actions={<ApproverIdentity token={token} onChange={setToken} />}
+      actions={
+        <div className="flex items-center gap-4">
+          <AgentModeBadge mode={canned.data?.mode} />
+          <ApproverIdentity token={token} onChange={setToken} />
+        </div>
+      }
     >
       <div className="border-b border-edge px-5 py-4">
         <form
@@ -85,6 +90,11 @@ export function ConsolePage() {
           </button>
         </form>
         <div className="mt-2 flex flex-wrap gap-2">
+          {canned.data?.mode === "anthropic" && (
+            <span className="self-center text-xs text-ink-faint">
+              examples:
+            </span>
+          )}
           {(canned.data?.instructions ?? []).map((chip) => (
             <button
               key={chip.instruction}
@@ -193,6 +203,26 @@ function describeStep(event: BusEvent): string {
     return node;
   }
   return "";
+}
+
+/**
+ * Which provider runs the agent (W3). Mock is a scripted stand in: only the
+ * canned instructions run. Anthropic sends free text through the real model.
+ * Saying so here is the labeled fallback rule (AGENTS.md C9).
+ */
+function AgentModeBadge({ mode }: { mode: string | undefined }) {
+  if (mode === undefined) return null;
+  return (
+    <span
+      data-testid="agent-mode"
+      className="flex items-center gap-1.5 text-xs text-ink-dim"
+    >
+      agent
+      <Badge tone={mode === "mock" ? "neutral" : "info"}>
+        {mode === "mock" ? "mock (scripted)" : mode}
+      </Badge>
+    </span>
+  );
 }
 
 function EscalationsPanel({ canAct }: { canAct: boolean }) {

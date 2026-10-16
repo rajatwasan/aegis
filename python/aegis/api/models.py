@@ -166,6 +166,8 @@ class AgentRunResponse(BaseModel):
     run_id: str
     status: str
     instruction: str
+    #: which provider drives this run: "mock" (scripted) or "anthropic" (real model)
+    mode: str
 
 
 class CannedInstruction(BaseModel):
@@ -174,4 +176,7 @@ class CannedInstruction(BaseModel):
 
 
 class CannedInstructionsResponse(BaseModel):
+    #: "mock": only these instructions run, scripted. "anthropic": free text runs
+    #: through the real model and these are examples.
+    mode: str
     instructions: list[CannedInstruction]
