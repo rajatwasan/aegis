@@ -34,12 +34,16 @@ CREATE TABLE IF NOT EXISTS pairing_codes (
 
 
 class GuardianStore:
-    """Thread-safe wrapper around the passkey tables of the approval db."""
+    """Thread-safe wrapper around the passkey tables of the approval db.
+
+    Reads and writes share one connection across threads, so every statement
+    runs under ``_lock`` (see ``ProposalStore``).
+    """
 
     def __init__(self, db_path: str) -> None:
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         with self._lock, self._conn:
             self._conn.executescript(_SCHEMA)
             self._refuse_unbound_tables(db_path)
@@ -69,7 +73,10 @@ class GuardianStore:
             )
 
     def get_pairing_code(self, code: str) -> dict[str, Any] | None:
-        row = self._conn.execute("SELECT * FROM pairing_codes WHERE code = ?", (code,)).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM pairing_codes WHERE code = ?", (code,)
+            ).fetchone()
         return dict(row) if row is not None else None
 
     def mark_code_used(self, code: str) -> None:
@@ -90,15 +97,17 @@ class GuardianStore:
             )
 
     def get_credential(self, credential_id: str) -> dict[str, Any] | None:
-        row = self._conn.execute(
-            "SELECT * FROM guardian_credentials WHERE credential_id = ?", (credential_id,)
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM guardian_credentials WHERE credential_id = ?", (credential_id,)
+            ).fetchone()
         return dict(row) if row is not None else None
 
     def list_credentials(self) -> list[dict[str, Any]]:
-        rows = self._conn.execute(
-            "SELECT * FROM guardian_credentials ORDER BY created_at"
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM guardian_credentials ORDER BY created_at"
+            ).fetchall()
         return [dict(r) for r in rows]
 
     def update_sign_count(self, credential_id: str, sign_count: int) -> None:
