@@ -29,6 +29,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from aegis import anchoring, chains
+from aegis.agent.spend import window_seconds_from_env
 from aegis.anchoring import StateError
 from aegis.api.agent_runner import AgentRunner, UnknownInstructionError, canned_instructions
 from aegis.api.config import ApiConfig, load_chain_state
@@ -215,6 +216,7 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
                 PolicyRuleView(id=r.id, effect=r.effect.value, condition=describe_rule(r))
                 for r in policy.rules
             ],
+            daily_window_seconds=window_seconds_from_env(),
         )
 
     # -------------------------------------------------------------- compliance

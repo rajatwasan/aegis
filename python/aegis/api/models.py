@@ -108,6 +108,8 @@ class PolicyResponse(BaseModel):
     default: str
     allowlist: list[str]
     rules: list[PolicyRuleView]
+    #: the rolling window behind within_daily_limit, read back from the audit log (W4)
+    daily_window_seconds: int
 
 
 class InjectionStats(BaseModel):

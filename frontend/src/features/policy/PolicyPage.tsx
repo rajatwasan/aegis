@@ -30,7 +30,7 @@ export function PolicyPage() {
   return (
     <Page
       title="Policy"
-      subtitle={`version ${data.version} — first match wins, default ${data.default}`}
+      subtitle={`version ${data.version} — first match wins, default ${data.default} — daily limits roll over ${windowLabel(data.daily_window_seconds)}, read from the audit log`}
       actions={
         <span className="text-xs text-ink-dim">
           hash <HashChip value={data.policy_hash} />
@@ -89,4 +89,11 @@ export function PolicyPage() {
       </div>
     </Page>
   );
+}
+
+/** "24h" for 86400, "90m" for 5400, else seconds: the window behind within_daily_limit (W4). */
+function windowLabel(seconds: number): string {
+  if (seconds % 3600 === 0) return `${seconds / 3600}h`;
+  if (seconds % 60 === 0) return `${seconds / 60}m`;
+  return `${seconds}s`;
 }

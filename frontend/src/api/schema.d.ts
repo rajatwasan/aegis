@@ -550,6 +550,8 @@ export interface components {
     PolicyResponse: {
       /** Allowlist */
       allowlist: string[];
+      /** Daily Window Seconds */
+      daily_window_seconds: number;
       /** Default */
       default: string;
       /** Policy Hash */

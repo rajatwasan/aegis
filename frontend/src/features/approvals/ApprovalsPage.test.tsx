@@ -358,5 +358,9 @@ describe("PolicyPage", () => {
     expect(
       screen.getByText(/version 1 — first match wins, default escalate/),
     ).toBeInTheDocument();
+    // W4: the rolling window behind within_daily_limit is stated, with its source
+    expect(
+      screen.getByText(/daily limits roll over 24h, read from the audit log/),
+    ).toBeInTheDocument();
   });
 });
