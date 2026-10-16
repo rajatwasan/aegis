@@ -33,6 +33,7 @@ git clone <this-repo> aegis && cd aegis
 make setup           # create .venv, install python deps + package, install forge deps
 make frontend-setup  # npm install for the Guardian Console (node 20+)
 make test            # forge suite + python suite + frontend suite, all local
+make check           # lint + every suite + build + evals freshness: the gate before any push
 make demo            # headless end-to-end on a throwaway anvil, exits 0 on success
 make dev             # anvil + API + Guardian Console at http://localhost:5173
 ```

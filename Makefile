@@ -5,8 +5,8 @@ PIP   := $(VENV)/bin/pip
 RUFF  := $(VENV)/bin/ruff
 PYTEST:= $(VENV)/bin/pytest
 
-.PHONY: setup fmt lint test test-contracts test-python demo evals clean \
-        frontend-setup frontend-dev frontend-build frontend-test e2e dev
+.PHONY: setup fmt lint test test-contracts test-python demo evals evals-check check clean \
+        frontend-setup frontend-dev frontend-build frontend-lint frontend-test e2e dev
 
 setup:
 	python3 -m venv $(VENV)
@@ -19,10 +19,11 @@ fmt:
 	cd contracts && forge fmt
 	$(RUFF) format python/
 
-lint:
+lint: frontend/node_modules
 	cd contracts && forge fmt --check
 	$(RUFF) check python/
 	$(RUFF) format --check python/
+	cd frontend && npm run lint && npm run typecheck
 
 test: test-contracts test-python frontend-test
 
@@ -40,8 +41,11 @@ frontend-setup:
 frontend-dev:
 	cd frontend && npm run dev
 
-frontend-build:
-	cd frontend && npm run lint && npm run build
+frontend-build: frontend/node_modules
+	cd frontend && npm run build
+
+frontend-lint: frontend/node_modules
+	cd frontend && npm run lint && npm run typecheck
 
 frontend-test: frontend/node_modules
 	cd frontend && npm test
@@ -64,6 +68,17 @@ demo:
 
 evals:
 	$(PY) -m aegis.evals_harness || $(PY) evals/harness.py
+
+# The committed report must be what the harness produces on this commit
+# (AGENTS.md T5): regenerate, then fail if the tree changed.
+evals-check: evals
+	git diff --exit-code -- evals/report.md
+
+# The single gate before every commit, push and pull request (AGENTS.md V1,
+# appendix B). Stops at the first failure. `make e2e` runs separately when the
+# console or an API route it calls changed (V5), because it needs a browser.
+check: lint test-contracts test-python frontend-test frontend-build evals-check
+	@echo "make check: green"
 
 clean:
 	rm -rf contracts/out contracts/cache .pytest_cache
