@@ -86,3 +86,58 @@ def test_verify_without_anchor_reports(deployment, tmp_path: Path, capsys) -> No
     _seed_state(deployment, tmp_path)
     assert cli.cmd_verify(tmp_path, "whatever", verify_all=False) == 1
     assert "run `aegis anchor` first" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------------------- #
+# approver (W2): tokens are printed once and stored only as hashes
+# --------------------------------------------------------------------------- #
+
+
+def test_cli_approver_add_prints_token_once_and_stores_hash(tmp_path: Path, capsys) -> None:
+    from aegis.approval.identity import hash_token
+    from aegis.approval.store import ProposalStore
+
+    args = ["--state-dir", str(tmp_path), "approver", "add", "ops-1", "--name", "Ops"]
+    assert cli.main(args) == 0
+    out = capsys.readouterr().out.strip().splitlines()
+    token = out[-1]
+    assert len(token) >= 32 and "token" not in token  # the last line is the token itself
+
+    row = ProposalStore(str(tmp_path / "approvals.db")).get_approver("ops-1")
+    assert row is not None
+    assert row["token_hash"] == hash_token(token)
+    assert token not in json.dumps(row)  # never persisted in the clear
+
+    # list never shows the token or its hash
+    assert cli.main(["--state-dir", str(tmp_path), "approver", "list"]) == 0
+    listing = capsys.readouterr().out
+    assert "ops-1" in listing and "active" in listing
+    assert token not in listing and row["token_hash"] not in listing
+
+    # a second add with the same id is refused
+    assert cli.main(["--state-dir", str(tmp_path), "approver", "add", "ops-1"]) == 1
+    assert "already exists" in capsys.readouterr().err
+
+
+def test_cli_approver_revoke_disables_the_token(tmp_path: Path, capsys) -> None:
+    from fastapi.testclient import TestClient
+
+    from aegis.approval import ApprovalConfig, create_app
+
+    assert cli.main(["--state-dir", str(tmp_path), "approver", "add", "ops-2"]) == 0
+    token = capsys.readouterr().out.strip().splitlines()[-1]
+    assert cli.main(["--state-dir", str(tmp_path), "approver", "revoke", "ops-2"]) == 0
+    assert "revoked" in capsys.readouterr().out
+    assert cli.main(["--state-dir", str(tmp_path), "approver", "revoke", "nobody"]) == 1
+
+    app = create_app(
+        ApprovalConfig(
+            db_path=str(tmp_path / "approvals.db"),
+            audit_log_path=str(tmp_path / "audit.jsonl"),
+            audit_key_file=str(tmp_path / "audit.key"),
+            policy_path=str(Path(__file__).resolve().parents[2] / "policies" / "default.yaml"),
+            guardian_key=KEYS[9],
+        )
+    )
+    res = TestClient(app).get("/approvers/me", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 401

@@ -13,7 +13,10 @@ export function formatAmount(value: number | string): string {
 }
 
 /** Seconds/minutes/hours ago; timestamps always pair this with an absolute title. */
-export function relativeTime(iso: string | number, now: number = Date.now()): string {
+export function relativeTime(
+  iso: string | number,
+  now: number = Date.now(),
+): string {
   const then = typeof iso === "number" ? iso * 1000 : Date.parse(iso);
   if (Number.isNaN(then)) return "unknown";
   const delta = Math.max(0, Math.round((now - then) / 1000));
@@ -26,11 +29,17 @@ export function relativeTime(iso: string | number, now: number = Date.now()): st
 
 export function absoluteTime(iso: string | number): string {
   const then = typeof iso === "number" ? new Date(iso * 1000) : new Date(iso);
-  return then.toISOString().replace("T", " ").replace(/\.\d+.*$/, " UTC");
+  return then
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+.*$/, " UTC");
 }
 
 /** mm:ss (or h:mm:ss) until an epoch-seconds deadline; negative -> "expired". */
-export function countdown(expiresAtSeconds: number, now: number = Date.now()): string {
+export function countdown(
+  expiresAtSeconds: number,
+  now: number = Date.now(),
+): string {
   const remaining = Math.floor(expiresAtSeconds - now / 1000);
   if (remaining <= 0) return "expired";
   const h = Math.floor(remaining / 3600);

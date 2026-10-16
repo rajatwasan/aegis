@@ -4,13 +4,17 @@
  * `invalidationsFor` in lib/events.ts so the SSE stream keeps them fresh.
  */
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { asProposalRow, asProposalRows, type ProposalRow } from "./types";
+
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 async function unwrap<T>(
   promise: Promise<{ data?: T; error?: unknown; response: Response }>,
@@ -21,7 +25,11 @@ async function unwrap<T>(
       typeof error === "object" && error !== null && "detail" in error
         ? String((error as { detail: unknown }).detail)
         : `request failed (${response.status})`;
-    throw new Error(detail);
+    // a 401 on an action means the approver token was missing or rejected (W2)
+    throw new ApiError(
+      response.status === 401 ? `token rejected: ${detail}` : detail,
+      response.status,
+    );
   }
   return data;
 }
@@ -116,6 +124,20 @@ export function usePolicy() {
   });
 }
 
+/**
+ * Who the current approver token belongs to, per the server (W2). Disabled
+ * without a token; a 401 is a final answer, not something to retry.
+ */
+export function useApproverMe(token: string) {
+  return useQuery({
+    queryKey: ["approvers", "me", token],
+    enabled: token !== "",
+    retry: false,
+    staleTime: 60_000,
+    queryFn: () => unwrap(api.GET("/approvers/me")),
+  });
+}
+
 export function useCannedInstructions() {
   return useQuery({
     queryKey: ["agent", "instructions"],
@@ -161,7 +183,6 @@ export function useRunAgent() {
 
 interface ActOnProposal {
   decisionId: string;
-  approver: string;
   comment: string;
 }
 
@@ -173,11 +194,13 @@ interface ActOnProposal {
 function useProposalAction(action: "approve" | "reject") {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ decisionId, approver, comment }: ActOnProposal) =>
+    // the approver is whoever the bearer token resolves to on the server;
+    // the body carries the comment and nothing else (W2, AGENTS.md C4)
+    mutationFn: ({ decisionId, comment }: ActOnProposal) =>
       unwrap(
         api.POST(`/proposals/{decision_id}/${action}`, {
           params: { path: { decision_id: decisionId } },
-          body: { approver, comment },
+          body: { comment },
         }),
       ),
     onMutate: async ({ decisionId }) => {

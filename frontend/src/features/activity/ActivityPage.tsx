@@ -36,24 +36,20 @@ export function ActivityPage() {
   const [operation, setOperation] = useState<OpFilter>("all");
 
   const entries: Entry[] = [
-    ...(decisions.data?.items ?? []).map(
-      (decision): Entry => ({
-        kind: "decision",
-        key: `decision-${decision.decision_id}-${decision.ts}`,
-        ts: decision.ts,
-        decision,
-      }),
-    ),
+    ...(decisions.data?.items ?? []).map((decision): Entry => ({
+      kind: "decision",
+      key: `decision-${decision.decision_id}-${decision.ts}`,
+      ts: decision.ts,
+      decision,
+    })),
     ...feed.events
       .filter((event) => event.type === "agent.step")
-      .map(
-        (event): Entry => ({
-          kind: "step",
-          key: `step-${event.seq}`,
-          ts: event.ts,
-          event,
-        }),
-      ),
+      .map((event): Entry => ({
+        kind: "step",
+        key: `step-${event.seq}`,
+        ts: event.ts,
+        event,
+      })),
   ]
     .filter((entry) => {
       if (entry.kind === "step") {
@@ -62,7 +58,8 @@ export function ActivityPage() {
       }
       const d = entry.decision;
       if (effect !== "all" && d.effect !== effect) return false;
-      if (operation !== "all" && d.proposal.operation !== operation) return false;
+      if (operation !== "all" && d.proposal.operation !== operation)
+        return false;
       return true;
     })
     .sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts));
@@ -142,7 +139,9 @@ function DecisionLine({ decision }: { decision: DecisionItem }) {
       <span className="text-ink-dim">
         {operationName(Number(proposal.operation ?? 0))}
       </span>
-      {typeof proposal.amount === "number" && <Amount value={proposal.amount} />}
+      {typeof proposal.amount === "number" && (
+        <Amount value={proposal.amount} />
+      )}
       {typeof proposal.from === "string" && typeof proposal.to === "string" && (
         <span className="flex items-center gap-1 text-ink-dim">
           <HashChip value={proposal.from} />

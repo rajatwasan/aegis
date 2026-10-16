@@ -11,8 +11,29 @@ import {
   makeVerifyResponse,
 } from "./fixtures";
 
+/** The approver token the tests sign in with; the server knows it as casey. */
+export const TEST_APPROVER_TOKEN = "tok-casey";
+export const TEST_APPROVER = {
+  id: "casey",
+  display_name: "Casey",
+  auth_method: "token",
+};
+
+export function signInAsCasey(): void {
+  window.localStorage.setItem("aegis.approver_token", TEST_APPROVER_TOKEN);
+}
+
 export const handlers = [
   http.get(`${API_URL}/metrics`, () => HttpResponse.json(makeMetrics())),
+  // W2: identity comes from the bearer token; anything else is a 401
+  http.get(`${API_URL}/approvers/me`, ({ request }) =>
+    request.headers.get("authorization") === `Bearer ${TEST_APPROVER_TOKEN}`
+      ? HttpResponse.json(TEST_APPROVER)
+      : HttpResponse.json(
+          { detail: "approver token not recognized" },
+          { status: 401 },
+        ),
+  ),
   http.get(`${API_URL}/proposals`, () => HttpResponse.json([makeProposal()])),
   http.get(`${API_URL}/proposals/:id`, ({ params }) =>
     HttpResponse.json(makeProposal({ decision_id: String(params.id) })),

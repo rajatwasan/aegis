@@ -32,11 +32,15 @@ describe("DashboardPage", () => {
   it("draws the decisions-by-effect bar in the status colors", async () => {
     renderApp(<App />, { route: "/" });
     const bar = await screen.findByTestId("effect-bar");
-    expect(within(bar).getByRole("img", { name: "allow: 8" })).toBeInTheDocument();
+    expect(
+      within(bar).getByRole("img", { name: "allow: 8" }),
+    ).toBeInTheDocument();
     expect(
       within(bar).getByRole("img", { name: "escalate: 3" }),
     ).toBeInTheDocument();
-    expect(within(bar).getByRole("img", { name: "deny: 1" })).toBeInTheDocument();
+    expect(
+      within(bar).getByRole("img", { name: "deny: 1" }),
+    ).toBeInTheDocument();
   });
 
   it("shows the last anchor with a link to track its transaction on-chain", async () => {
@@ -94,7 +98,10 @@ describe("DashboardPage", () => {
   it("surfaces an anchoring failure instead of a silent no-op", async () => {
     server.use(
       http.post(`${API_URL}/anchor`, () =>
-        HttpResponse.json({ detail: "no state; run the demo first" }, { status: 503 }),
+        HttpResponse.json(
+          { detail: "no state; run the demo first" },
+          { status: 503 },
+        ),
       ),
     );
     renderApp(<App />, { route: "/" });

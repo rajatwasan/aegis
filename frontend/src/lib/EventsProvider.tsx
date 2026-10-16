@@ -103,9 +103,7 @@ export function useFeed(): FeedState {
 }
 
 /** Subscribe to raw bus events (the console's live agent.step view). */
-export function useBusSubscription(
-  listener: (event: BusEvent) => void,
-): void {
+export function useBusSubscription(listener: (event: BusEvent) => void): void {
   const { stream } = useEventsContext();
   useEffect(() => stream.subscribe(listener), [stream, listener]);
 }

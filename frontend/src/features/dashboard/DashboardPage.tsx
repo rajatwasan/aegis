@@ -118,7 +118,10 @@ function AnchorCard({
   const isPublic = chain?.public === true;
 
   return (
-    <section className="rounded border border-edge bg-panel p-4" data-testid="anchor-card">
+    <section
+      className="rounded border border-edge bg-panel p-4"
+      data-testid="anchor-card"
+    >
       <div className="mb-2 flex items-center gap-3">
         <h2 className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">
           Anchoring
@@ -145,7 +148,9 @@ function AnchorCard({
       </div>
 
       {anchorNow.isError && (
-        <p className="mb-2 text-[13px] text-danger">{anchorNow.error.message}</p>
+        <p className="mb-2 text-[13px] text-danger">
+          {anchorNow.error.message}
+        </p>
       )}
       {anchorNow.data?.anchored === false && (
         <p className="mb-2 text-xs text-ink-faint">
@@ -162,11 +167,12 @@ function AnchorCard({
             root <HashChip value={`0x${latest.root}`} />
           </span>
           <TxLink txHash={latest.tx_hash} txUrl={latest.tx_url} />
-          {latest.block_number !== null && latest.block_number !== undefined && (
-            <span className="text-xs text-ink-faint">
-              block <span className="mono">{latest.block_number}</span>
-            </span>
-          )}
+          {latest.block_number !== null &&
+            latest.block_number !== undefined && (
+              <span className="text-xs text-ink-faint">
+                block <span className="mono">{latest.block_number}</span>
+              </span>
+            )}
           <span className="text-xs text-ink-faint">
             {latest.record_count} records sealed
           </span>
@@ -192,8 +198,18 @@ function AnchorCard({
 function EffectBar({ counts }: { counts: Metrics["counts_by_effect"] }) {
   const segments = [
     { key: "allow", tone: "bg-ok", text: "text-ok", count: counts.allow ?? 0 },
-    { key: "escalate", tone: "bg-warn", text: "text-warn", count: counts.escalate ?? 0 },
-    { key: "deny", tone: "bg-danger", text: "text-danger", count: counts.deny ?? 0 },
+    {
+      key: "escalate",
+      tone: "bg-warn",
+      text: "text-warn",
+      count: counts.escalate ?? 0,
+    },
+    {
+      key: "deny",
+      tone: "bg-danger",
+      text: "text-danger",
+      count: counts.deny ?? 0,
+    },
   ];
   const total = segments.reduce((sum, s) => sum + s.count, 0);
   if (total === 0) {
@@ -218,7 +234,10 @@ function EffectBar({ counts }: { counts: Metrics["counts_by_effect"] }) {
       <div className="mt-2 flex gap-4 text-xs">
         {segments.map((s) => (
           <span key={s.key} className="flex items-center gap-1.5">
-            <span className={cn("size-2 rounded-full", s.tone)} aria-hidden="true" />
+            <span
+              className={cn("size-2 rounded-full", s.tone)}
+              aria-hidden="true"
+            />
             <span className={s.text}>{s.key}</span>
             <span className="mono text-ink-dim">{s.count}</span>
           </span>
@@ -254,7 +273,9 @@ function StatCard({
       {value === undefined ? (
         <Skeleton className="mt-1 h-7 w-16" />
       ) : (
-        <div className={cn("mono mt-0.5 text-2xl font-semibold", valueColor[tone])}>
+        <div
+          className={cn("mono mt-0.5 text-2xl font-semibold", valueColor[tone])}
+        >
           {value}
         </div>
       )}

@@ -27,6 +27,13 @@ CREATE TABLE IF NOT EXISTS counters (
     name  TEXT PRIMARY KEY,
     value INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS approvers (
+    id           TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    token_hash   TEXT NOT NULL UNIQUE,
+    created_at   REAL NOT NULL,
+    revoked_at   REAL
+);
 """
 
 PENDING = "pending"
@@ -88,13 +95,15 @@ class ProposalStore:
             ).fetchall()
         return [self._to_dict(r) for r in rows]
 
-    def add_approval(self, decision_id: str, approver: str, comment: str) -> dict[str, Any]:
+    def add_approval(
+        self, decision_id: str, identity: dict[str, Any], comment: str
+    ) -> dict[str, Any]:
+        """Record one approval. ``identity`` is the resolved approver's record
+        (``approver`` id, ``display_name``, ``auth_method``), never client input."""
         with self._lock, self._conn:
             row = self.get(decision_id)
             assert row is not None
-            approvals = row["approvals"] + [
-                {"approver": approver, "comment": comment, "ts": time.time()}
-            ]
+            approvals = row["approvals"] + [{**identity, "comment": comment, "ts": time.time()}]
             self._conn.execute(
                 "UPDATE proposals SET approvals = ? WHERE decision_id = ?",
                 (json.dumps(approvals), decision_id),
@@ -140,6 +149,53 @@ class ProposalStore:
                 (EXPIRED, json.dumps({"action": "expired", "reason": "ttl"}), PENDING, now),
             )
         return [self.get(i) for i in ids]  # type: ignore[misc]
+
+    # ------------------------------------------------------------- approvers
+
+    def add_approver(self, approver_id: str, display_name: str, token_hash: str) -> dict[str, Any]:
+        """Register an approver. The caller holds the token; only its hash lands here."""
+        if not approver_id or not approver_id.strip():
+            raise ValueError("approver id must not be empty")
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO approvers (id, display_name, token_hash, created_at)"
+                " VALUES (?, ?, ?, ?)",
+                (
+                    approver_id.strip(),
+                    display_name.strip() or approver_id.strip(),
+                    token_hash,
+                    time.time(),
+                ),
+            )
+        return self.get_approver(approver_id.strip())  # type: ignore[return-value]
+
+    def get_approver(self, approver_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute("SELECT * FROM approvers WHERE id = ?", (approver_id,)).fetchone()
+        return dict(row) if row is not None else None
+
+    def get_approver_by_token_hash(self, token_hash: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM approvers WHERE token_hash = ?", (token_hash,)
+        ).fetchone()
+        return dict(row) if row is not None else None
+
+    def list_approvers(self) -> list[dict[str, Any]]:
+        """Approvers without their hashes: ids, names and timestamps only."""
+        rows = self._conn.execute(
+            "SELECT id, display_name, created_at, revoked_at FROM approvers ORDER BY created_at"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def revoke_approver(self, approver_id: str) -> dict[str, Any]:
+        with self._lock, self._conn:
+            row = self.get_approver(approver_id)
+            if row is None:
+                raise KeyError(approver_id)
+            if row["revoked_at"] is None:
+                self._conn.execute(
+                    "UPDATE approvers SET revoked_at = ? WHERE id = ?", (time.time(), approver_id)
+                )
+        return self.get_approver(approver_id)  # type: ignore[return-value]
 
     def next_nonce(self) -> int:
         with self._lock, self._conn:

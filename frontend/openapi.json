@@ -2,20 +2,15 @@
   "components": {
     "schemas": {
       "ActionIn": {
+        "additionalProperties": false,
+        "description": "Body of approve and reject: the comment, and nothing else.\n\n``extra=\"forbid\"`` so a client that still sends ``approver`` (the pre W2\nshape) gets a 422 naming the field instead of being silently ignored.",
         "properties": {
-          "approver": {
-            "title": "Approver",
-            "type": "string"
-          },
           "comment": {
             "default": "",
             "title": "Comment",
             "type": "string"
           }
         },
-        "required": [
-          "approver"
-        ],
         "title": "ActionIn",
         "type": "object"
       },
@@ -188,6 +183,29 @@
           "anchored"
         ],
         "title": "AnchorResponse",
+        "type": "object"
+      },
+      "ApproverOut": {
+        "properties": {
+          "auth_method": {
+            "title": "Auth Method",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "auth_method"
+        ],
+        "title": "ApproverOut",
         "type": "object"
       },
       "AuditRecordDetail": {
@@ -1054,6 +1072,52 @@
         "summary": "Anchor Records"
       }
     },
+    "/approvers/me": {
+      "get": {
+        "operationId": "whoami_approvers_me_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApproverOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Whoami"
+      }
+    },
     "/audit/records": {
       "get": {
         "operationId": "list_audit_records_audit_records_get",
@@ -1490,6 +1554,22 @@
               "title": "Decision Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "requestBody": {
@@ -1540,6 +1620,22 @@
             "schema": {
               "title": "Decision Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],

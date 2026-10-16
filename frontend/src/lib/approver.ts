@@ -1,29 +1,30 @@
 import { useState } from "react";
+import { useApproverMe } from "../api/queries";
+import { loadApproverToken, storeApproverToken } from "./approverToken";
 
 /**
- * The reviewer's identity: a simple client-side setting (guardian signing
- * stays server-side by design). Persisted so it survives reloads and sent
- * as the `approver` field on approve/reject (ADR 003).
+ * React side of the approver credential (see approverToken.ts for the
+ * storage and routing rules). The server says who the token belongs to;
+ * nothing about identity is typed by hand (spec W2, decision D1).
  */
-const STORAGE_KEY = "aegis.approver";
-
-export function loadApprover(): string {
-  try {
-    return window.localStorage.getItem(STORAGE_KEY) ?? "";
-  } catch {
-    return "";
-  }
+export function useApproverToken(): [string, (token: string) => void] {
+  const [token, setToken] = useState(loadApproverToken);
+  const update = (next: string) => {
+    const trimmed = next.trim();
+    setToken(trimmed);
+    storeApproverToken(trimmed);
+  };
+  return [token, update];
 }
 
-export function useApprover(): [string, (name: string) => void] {
-  const [name, setName] = useState(loadApprover);
-  const update = (next: string) => {
-    setName(next);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // private mode: the in-memory value still works for this session
-    }
+/** The resolved identity, or null when the viewer cannot act (W2). */
+export function useResolvedApprover(token: string): {
+  canAct: boolean;
+  displayName: string | null;
+} {
+  const me = useApproverMe(token);
+  return {
+    canAct: me.data !== undefined,
+    displayName: me.data?.display_name ?? null,
   };
-  return [name, update];
 }

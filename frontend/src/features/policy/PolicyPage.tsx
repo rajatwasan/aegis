@@ -56,7 +56,9 @@ export function PolicyPage() {
                     <span className="mono text-[12px]">{rule.id}</span>
                     <StatusBadge value={rule.effect} />
                   </div>
-                  <p className="mt-0.5 text-xs text-ink-dim">{rule.condition}</p>
+                  <p className="mt-0.5 text-xs text-ink-dim">
+                    {rule.condition}
+                  </p>
                 </div>
               </li>
             ))}

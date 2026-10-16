@@ -4,15 +4,18 @@
 on tokenized assets.**
 
 An LLM agent proposes token operations. A deterministic policy engine allows,
-denies, or escalates. Escalations pause the agent until a human approves.
-Approved high-risk operations execute on-chain **only** with an EIP-712
-authorization co-signed by a guardian key held by the approval service. Every
-decision lands in a hash-chained audit log whose Merkle roots are anchored
+denies, or escalates. Escalations pause the agent until an authenticated human
+approves. Approved high-risk operations execute on-chain **only** with an
+EIP-712 authorization co-signed by a guardian key held by the approval service.
+Every decision lands in a hash-chained audit log whose Merkle roots are anchored
 on-chain, and a CLI proves any single decision's inclusion.
 
 The guarantee is enforced **below the model**: even a fully prompt-injected
 agent cannot move gated assets, because the token contract reverts without a
-guardian signature the agent cannot forge and a human it cannot impersonate.
+guardian signature the agent cannot forge, and the approval service signs only
+for a decision made by an approver it authenticated. The agent holds neither the
+guardian key nor any approver credential, so it cannot approve its own
+proposals.
 
 ## Why
 
@@ -88,7 +91,10 @@ LLM proposal ─► typed tools ─► policy engine ─► ALLOW  ─► transf
   Ed25519-signed, with a sha256 Merkle tree and inclusion proofs.
 - **Approval service** (`python/aegis/approval/`): FastAPI HITL API with
   idempotency, TTL auto-reject, optional dual-control, a single-file HTML
-  approval page, and the guardian EIP-712 signer.
+  approval page, and the guardian EIP-712 signer. Approvers are registered with
+  `aegis approver add`, which prints a bearer token once and stores only its
+  hash; approve and reject require that token and record the identity it
+  resolves to.
 - **Agent** (`python/aegis/agent/`): a LangGraph graph (supervisor → gate →
   execute | interrupt → resume) with a typed tool registry and pluggable LLM
   providers — `MockLLM` (deterministic, used everywhere in CI) and the optional
@@ -143,8 +149,10 @@ executed transfer → PROOF OK.
 ## Design highlights
 
 - **The key is never where the agent is.** The guardian key lives only in the
-  approval service; the agent and MCP clients hold nothing that moves gated
-  assets.
+  approval service (required configuration, no default, dev keys refused
+  unless opted in); the agent and MCP clients hold nothing that moves gated
+  assets and no approver credential. At startup the service checks that its
+  signer is the token's on chain `guardian()` and refuses to start otherwise.
 - **Deterministic gate.** Policy decisions are a pure function of proposal +
   on-chain context + a hashed policy file — reproducible, testable, and bound
   into each authorization via `policyHash`.

@@ -6,7 +6,10 @@ import { useNow } from "../../lib/useNow";
 export function TimeAgo({ value }: { value: string | number }) {
   const now = useNow(10_000);
   return (
-    <time title={absoluteTime(value)} className="text-ink-dim whitespace-nowrap">
+    <time
+      title={absoluteTime(value)}
+      className="text-ink-dim whitespace-nowrap"
+    >
       {relativeTime(value, now)}
     </time>
   );
@@ -23,7 +26,11 @@ export function Countdown({ expiresAt }: { expiresAt: number }) {
       title={absoluteTime(expiresAt)}
       className={cn(
         "mono tabular-nums",
-        text === "expired" ? "text-danger" : urgent ? "text-warn" : "text-ink-dim",
+        text === "expired"
+          ? "text-danger"
+          : urgent
+            ? "text-warn"
+            : "text-ink-dim",
       )}
     >
       {text}

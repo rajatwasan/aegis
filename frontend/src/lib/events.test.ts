@@ -8,7 +8,12 @@ import {
 } from "./events";
 
 function event(seq: number, type: BusEvent["type"] = "agent.step"): BusEvent {
-  return { seq, type, ts: `2026-07-12T10:00:${String(seq).padStart(2, "0")}Z`, data: {} };
+  return {
+    seq,
+    type,
+    ts: `2026-07-12T10:00:${String(seq).padStart(2, "0")}Z`,
+    data: {},
+  };
 }
 
 describe("feedReducer", () => {
@@ -28,7 +33,8 @@ describe("feedReducer", () => {
 
   it("caps the ring buffer", () => {
     let state = emptyFeed;
-    for (let seq = 1; seq <= 10; seq++) state = feedReducer(state, event(seq), 5);
+    for (let seq = 1; seq <= 10; seq++)
+      state = feedReducer(state, event(seq), 5);
     expect(state.events).toHaveLength(5);
     expect(state.events[0]?.seq).toBe(10);
     expect(state.events.at(-1)?.seq).toBe(6);

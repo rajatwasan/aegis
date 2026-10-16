@@ -37,7 +37,10 @@ export interface ProposalPayload {
 }
 
 export interface ApprovalEntry {
+  /** approver id, resolved by the server from the credential (W2) */
   approver: string;
+  display_name?: string;
+  auth_method?: string;
   comment: string;
   ts: number;
 }

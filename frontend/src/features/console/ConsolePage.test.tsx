@@ -1,29 +1,37 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import App from "../../App";
 import { API_URL } from "../../api/client";
 import { makeProposal } from "../../test/fixtures";
-import { server } from "../../test/msw";
+import { server, signInAsCasey, TEST_APPROVER_TOKEN } from "../../test/msw";
 import { FakeEventSource, renderApp } from "../../test/render";
 
 function renderConsole() {
-  window.localStorage.setItem("aegis.approver", "casey");
+  signInAsCasey();
   return renderApp(<App />, { route: "/console" });
 }
 
 describe("ConsolePage", () => {
+  beforeEach(() => window.localStorage.clear());
+
   it("offers the three canned instructions as chips", async () => {
     renderConsole();
     expect(
-      await screen.findByRole("button", { name: "Pay the vendor invoice batch" }),
+      await screen.findByRole("button", {
+        name: "Pay the vendor invoice batch",
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Send 50,000 AGD to the treasury desk" }),
+      screen.getByRole("button", {
+        name: "Send 50,000 AGD to the treasury desk",
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Refund 10 AGD to the frozen counterparty" }),
+      screen.getByRole("button", {
+        name: "Refund 10 AGD to the frozen counterparty",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -41,7 +49,9 @@ describe("ConsolePage", () => {
     renderConsole();
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole("button", { name: "Pay the vendor invoice batch" }),
+      await screen.findByRole("button", {
+        name: "Pay the vendor invoice batch",
+      }),
     );
     expect(posted).toEqual([{ instruction: "Pay the vendor invoice batch" }]);
 
@@ -49,7 +59,12 @@ describe("ConsolePage", () => {
     source.emit({
       seq: 1,
       type: "agent.step",
-      data: { run_id: "r1", instruction: "x", phase: "started", steps_planned: 4 },
+      data: {
+        run_id: "r1",
+        instruction: "x",
+        phase: "started",
+        steps_planned: 4,
+      },
     });
     source.emit({
       seq: 2,
@@ -80,22 +95,33 @@ describe("ConsolePage", () => {
       within(steps).getByText("plans propose_transfer (1,200)"),
     ).toBeInTheDocument();
     expect(
-      within(steps).getByText("act — policy: allow, status: executed, tx confirmed"),
+      within(steps).getByText(
+        "act — policy: allow, status: executed, tx confirmed",
+      ),
     ).toBeInTheDocument();
   });
 
   it("shows an escalation with inline approve that resolves the loop", async () => {
-    const approvals: unknown[] = [];
+    const approvals: { auth: string | null; body: unknown }[] = [];
     let pending: unknown[] = [];
     server.use(
       http.get(`${API_URL}/proposals`, () => HttpResponse.json(pending)),
-      http.post(`${API_URL}/proposals/:id/approve`, async ({ request, params }) => {
-        approvals.push(await request.json());
-        pending = [];
-        return HttpResponse.json(
-          makeProposal({ decision_id: String(params.id), status: "approved" }),
-        );
-      }),
+      http.post(
+        `${API_URL}/proposals/:id/approve`,
+        async ({ request, params }) => {
+          approvals.push({
+            auth: request.headers.get("authorization"),
+            body: await request.json(),
+          });
+          pending = [];
+          return HttpResponse.json(
+            makeProposal({
+              decision_id: String(params.id),
+              status: "approved",
+            }),
+          );
+        },
+      ),
     );
     renderConsole();
     expect(await screen.findByText("Nothing escalated.")).toBeInTheDocument();
@@ -124,15 +150,39 @@ describe("ConsolePage", () => {
       expect(screen.queryByTestId("escalation-dec-1")).toBeNull(),
     );
     expect(approvals).toEqual([
-      { approver: "casey", comment: "approved from console" },
+      {
+        auth: `Bearer ${TEST_APPROVER_TOKEN}`,
+        body: { comment: "approved from console" },
+      },
     ]);
+  });
+
+  it("keeps inline approve disabled until an approver token resolves", async () => {
+    server.use(
+      http.get(`${API_URL}/proposals`, () =>
+        HttpResponse.json([makeProposal()]),
+      ),
+    );
+    renderApp(<App />, { route: "/console" }); // not signed in
+    const card = await screen.findByTestId("escalation-dec-1");
+    const user = userEvent.setup();
+    await user.type(within(card).getByLabelText("comment for dec-1"), "yes");
+    expect(
+      within(card).getByRole("button", { name: "Approve" }),
+    ).toBeDisabled();
+    expect(screen.getByTestId("approver-status")).toHaveTextContent(
+      "not signed in",
+    );
   });
 
   it("surfaces an unknown-instruction error from the API", async () => {
     server.use(
       http.post(`${API_URL}/agent/run`, () =>
         HttpResponse.json(
-          { detail: "the keyless MockLLM only understands the canned instructions" },
+          {
+            detail:
+              "the keyless MockLLM only understands the canned instructions",
+          },
           { status: 400 },
         ),
       ),

@@ -4,1099 +4,1164 @@
  */
 
 export interface paths {
-    "/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Index */
-        get: operations["index__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+  "/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/agent/instructions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Canned Instructions */
-        get: operations["get_canned_instructions_agent_instructions_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Index */
+    get: operations["index__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/agent/instructions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/agent/run": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Run Agent */
-        post: operations["run_agent_agent_run_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Get Canned Instructions */
+    get: operations["get_canned_instructions_agent_instructions_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/agent/run": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/anchor": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Anchor Records */
-        post: operations["anchor_records_anchor_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** Run Agent */
+    post: operations["run_agent_agent_run_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/anchor": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/audit/records": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Audit Records */
-        get: operations["list_audit_records_audit_records_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** Anchor Records */
+    post: operations["anchor_records_anchor_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/approvers/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/audit/records/{decision_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Audit Record */
-        get: operations["get_audit_record_audit_records__decision_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Whoami */
+    get: operations["whoami_approvers_me_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/audit/records": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/audit/verify/{decision_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Verify Audit Record */
-        get: operations["verify_audit_record_audit_verify__decision_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** List Audit Records */
+    get: operations["list_audit_records_audit_records_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/audit/records/{decision_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/compliance/{address}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Party Status
-         * @description Registry compliance + freeze standing of one address (F2 drawer).
-         */
-        get: operations["get_party_status_compliance__address__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Get Audit Record */
+    get: operations["get_audit_record_audit_records__decision_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/audit/verify/{decision_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/decisions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Decisions */
-        get: operations["list_decisions_decisions_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Verify Audit Record */
+    get: operations["verify_audit_record_audit_verify__decision_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/compliance/{address}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Events */
-        get: operations["events_events_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Get Party Status
+     * @description Registry compliance + freeze standing of one address (F2 drawer).
+     */
+    get: operations["get_party_status_compliance__address__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/decisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/metrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Metrics */
-        get: operations["get_metrics_metrics_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** List Decisions */
+    get: operations["list_decisions_decisions_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/policy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Policy */
-        get: operations["get_policy_policy_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Events */
+    get: operations["events_events_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/metrics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/proposals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Proposals */
-        get: operations["list_proposals_proposals_get"];
-        put?: never;
-        /** Submit */
-        post: operations["submit_proposals_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Get Metrics */
+    get: operations["get_metrics_metrics_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/proposals/{decision_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Proposal */
-        get: operations["get_proposal_proposals__decision_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Get Policy */
+    get: operations["get_policy_policy_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/proposals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/proposals/{decision_id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Approve */
-        post: operations["approve_proposals__decision_id__approve_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** List Proposals */
+    get: operations["list_proposals_proposals_get"];
+    put?: never;
+    /** Submit */
+    post: operations["submit_proposals_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/proposals/{decision_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/proposals/{decision_id}/reject": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reject */
-        post: operations["reject_proposals__decision_id__reject_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Get Proposal */
+    get: operations["get_proposal_proposals__decision_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/proposals/{decision_id}/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    get?: never;
+    put?: never;
+    /** Approve */
+    post: operations["approve_proposals__decision_id__approve_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/proposals/{decision_id}/reject": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reject */
+    post: operations["reject_proposals__decision_id__reject_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /** ActionIn */
-        ActionIn: {
-            /** Approver */
-            approver: string;
-            /**
-             * Comment
-             * @default
-             */
-            comment: string;
-        };
-        /** AgentRunRequest */
-        AgentRunRequest: {
-            /** Instruction */
-            instruction: string;
-        };
-        /** AgentRunResponse */
-        AgentRunResponse: {
-            /** Instruction */
-            instruction: string;
-            /** Run Id */
-            run_id: string;
-            /** Status */
-            status: string;
-        };
-        /**
-         * AnchorInfo
-         * @description One anchored batch, with the coordinates needed to track it on-chain.
-         */
-        AnchorInfo: {
-            /** Anchor Address */
-            anchor_address?: string | null;
-            /** Anchor Url */
-            anchor_url?: string | null;
-            /** Anchored At */
-            anchored_at?: string | null;
-            /** Batch Id */
-            batch_id: number;
-            /** Block Number */
-            block_number?: number | null;
-            /** Chain Id */
-            chain_id?: number | null;
-            /** Chain Name */
-            chain_name?: string | null;
-            /** Record Count */
-            record_count: number;
-            /** Root */
-            root: string;
-            /** Tx Hash */
-            tx_hash?: string | null;
-            /** Tx Url */
-            tx_url?: string | null;
-        };
-        /** AnchorResponse */
-        AnchorResponse: {
-            /** Anchored */
-            anchored: boolean;
-            batch?: components["schemas"]["AnchorInfo"] | null;
-        };
-        /** AuditRecordDetail */
-        AuditRecordDetail: {
-            /** Neighbors */
-            neighbors: components["schemas"]["AuditRecordItem"][];
-            record: components["schemas"]["AuditRecordItem"];
-            /** Total */
-            total: number;
-        };
-        /**
-         * AuditRecordItem
-         * @description A raw audit record plus its position in the hash chain.
-         */
-        AuditRecordItem: {
-            /** Actor */
-            actor: string;
-            /** Decision Id */
-            decision_id: string;
-            /** Human Action */
-            human_action?: {
-                [key: string]: unknown;
-            } | null;
-            /** Index */
-            index: number;
-            /** Policy Result */
-            policy_result: {
-                [key: string]: unknown;
-            };
-            /** Prev Hash */
-            prev_hash: string;
-            /** Proposal */
-            proposal: {
-                [key: string]: unknown;
-            };
-            /** Record Hash */
-            record_hash: string;
-            /** Signature */
-            signature: string;
-            /** Ts */
-            ts: string;
-        };
-        /** AuditRecordsPage */
-        AuditRecordsPage: {
-            /** Items */
-            items: components["schemas"]["AuditRecordItem"][];
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
-            /** Total */
-            total: number;
-        };
-        /** CannedInstruction */
-        CannedInstruction: {
-            /** Description */
-            description: string;
-            /** Instruction */
-            instruction: string;
-        };
-        /** CannedInstructionsResponse */
-        CannedInstructionsResponse: {
-            /** Instructions */
-            instructions: components["schemas"]["CannedInstruction"][];
-        };
-        /** ChainStatus */
-        ChainStatus: {
-            /** Anchor Address */
-            anchor_address?: string | null;
-            /** Anchor Url */
-            anchor_url?: string | null;
-            /** Chain Id */
-            chain_id?: number | null;
-            /** Chain Name */
-            chain_name?: string | null;
-            /** Configured */
-            configured: boolean;
-            /** Connected */
-            connected: boolean;
-            /** Explorer Url */
-            explorer_url?: string | null;
-            /** Guardian Address */
-            guardian_address?: string | null;
-            /**
-             * Guardian Verified
-             * @default false
-             */
-            guardian_verified: boolean;
-            /** Public */
-            public?: boolean | null;
-            /** Rpc Url */
-            rpc_url?: string | null;
-        };
-        /**
-         * DecisionItem
-         * @description One policy-gate decision, projected from its audit record.
-         */
-        DecisionItem: {
-            /** Actor */
-            actor: string;
-            /** Decision Id */
-            decision_id: string;
-            /** Effect */
-            effect: string;
-            /** Matched Rules */
-            matched_rules?: string[];
-            /** Proposal */
-            proposal: {
-                [key: string]: unknown;
-            };
-            /** Status */
-            status?: string | null;
-            /** Ts */
-            ts: string;
-            /** Tx Hash */
-            tx_hash?: string | null;
-        };
-        /** DecisionsPage */
-        DecisionsPage: {
-            /** Items */
-            items: components["schemas"]["DecisionItem"][];
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
-            /** Total */
-            total: number;
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /** InjectionStats */
-        InjectionStats: {
-            /** Attacks */
-            attacks: number;
-            /** Blocked */
-            blocked: number;
-            /** Bypasses */
-            bypasses: number;
-        };
-        /** MetricsResponse */
-        MetricsResponse: {
-            chain: components["schemas"]["ChainStatus"];
-            /** Counts By Effect */
-            counts_by_effect: {
-                [key: string]: number;
-            };
-            /** Escalation Rate */
-            escalation_rate: number;
-            injections?: components["schemas"]["InjectionStats"] | null;
-            last_anchor?: components["schemas"]["AnchorInfo"] | null;
-            /** Pending Count */
-            pending_count: number;
-            /** Total Decisions */
-            total_decisions: number;
-        };
-        /**
-         * PartyStatus
-         * @description On-chain standing of one address, as the policy gate would see it.
-         */
-        PartyStatus: {
-            /** Address */
-            address: string;
-            /** Compliant */
-            compliant?: boolean | null;
-            /** Frozen */
-            frozen?: boolean | null;
-            /** Known */
-            known: boolean;
-        };
-        /** PolicyResponse */
-        PolicyResponse: {
-            /** Allowlist */
-            allowlist: string[];
-            /** Default */
-            default: string;
-            /** Policy Hash */
-            policy_hash: string;
-            /** Rules */
-            rules: components["schemas"]["PolicyRuleView"][];
-            /** Version */
-            version: number;
-            /** Yaml */
-            yaml: string;
-        };
-        /** PolicyRuleView */
-        PolicyRuleView: {
-            /** Condition */
-            condition: string;
-            /** Effect */
-            effect: string;
-            /** Id */
-            id: string;
-        };
-        /** ProposalIn */
-        ProposalIn: {
-            /** Amount */
-            amount: number;
-            /**
-             * Asset Class
-             * @default 0
-             */
-            asset_class: number;
-            /** From */
-            from: string;
-            /** Operation */
-            operation: number;
-            /**
-             * Policy Result
-             * @default {}
-             */
-            policy_result: {
-                [key: string]: unknown;
-            };
-            /**
-             * Requester
-             * @default agent
-             */
-            requester: string;
-            /** To */
-            to: string;
-            /** Token */
-            token: string;
-        };
-        /** ValidationError */
-        ValidationError: {
-            /** Context */
-            ctx?: Record<string, never>;
-            /** Input */
-            input?: unknown;
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-        };
-        /** VerifyResponse */
-        VerifyResponse: {
-            /** Proof Ok */
-            PROOF_OK: boolean;
-            anchor?: components["schemas"]["AnchorInfo"] | null;
-            /** Batch Id */
-            batch_id?: number | null;
-            /** Decision Id */
-            decision_id: string;
-            /** Index */
-            index?: number | null;
-            /** Local Root */
-            local_root?: string | null;
-            /** Merkle Path */
-            merkle_path?: string[] | null;
-            /** Onchain Root */
-            onchain_root?: string | null;
-            /** Reason */
-            reason?: string | null;
-            /** Record */
-            record?: {
-                [key: string]: unknown;
-            } | null;
-        };
+  schemas: {
+    /**
+     * ActionIn
+     * @description Body of approve and reject: the comment, and nothing else.
+     *
+     *     ``extra="forbid"`` so a client that still sends ``approver`` (the pre W2
+     *     shape) gets a 422 naming the field instead of being silently ignored.
+     */
+    ActionIn: {
+      /**
+       * Comment
+       * @default
+       */
+      comment: string;
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /** AgentRunRequest */
+    AgentRunRequest: {
+      /** Instruction */
+      instruction: string;
+    };
+    /** AgentRunResponse */
+    AgentRunResponse: {
+      /** Instruction */
+      instruction: string;
+      /** Run Id */
+      run_id: string;
+      /** Status */
+      status: string;
+    };
+    /**
+     * AnchorInfo
+     * @description One anchored batch, with the coordinates needed to track it on-chain.
+     */
+    AnchorInfo: {
+      /** Anchor Address */
+      anchor_address?: string | null;
+      /** Anchor Url */
+      anchor_url?: string | null;
+      /** Anchored At */
+      anchored_at?: string | null;
+      /** Batch Id */
+      batch_id: number;
+      /** Block Number */
+      block_number?: number | null;
+      /** Chain Id */
+      chain_id?: number | null;
+      /** Chain Name */
+      chain_name?: string | null;
+      /** Record Count */
+      record_count: number;
+      /** Root */
+      root: string;
+      /** Tx Hash */
+      tx_hash?: string | null;
+      /** Tx Url */
+      tx_url?: string | null;
+    };
+    /** AnchorResponse */
+    AnchorResponse: {
+      /** Anchored */
+      anchored: boolean;
+      batch?: components["schemas"]["AnchorInfo"] | null;
+    };
+    /** ApproverOut */
+    ApproverOut: {
+      /** Auth Method */
+      auth_method: string;
+      /** Display Name */
+      display_name: string;
+      /** Id */
+      id: string;
+    };
+    /** AuditRecordDetail */
+    AuditRecordDetail: {
+      /** Neighbors */
+      neighbors: components["schemas"]["AuditRecordItem"][];
+      record: components["schemas"]["AuditRecordItem"];
+      /** Total */
+      total: number;
+    };
+    /**
+     * AuditRecordItem
+     * @description A raw audit record plus its position in the hash chain.
+     */
+    AuditRecordItem: {
+      /** Actor */
+      actor: string;
+      /** Decision Id */
+      decision_id: string;
+      /** Human Action */
+      human_action?: {
+        [key: string]: unknown;
+      } | null;
+      /** Index */
+      index: number;
+      /** Policy Result */
+      policy_result: {
+        [key: string]: unknown;
+      };
+      /** Prev Hash */
+      prev_hash: string;
+      /** Proposal */
+      proposal: {
+        [key: string]: unknown;
+      };
+      /** Record Hash */
+      record_hash: string;
+      /** Signature */
+      signature: string;
+      /** Ts */
+      ts: string;
+    };
+    /** AuditRecordsPage */
+    AuditRecordsPage: {
+      /** Items */
+      items: components["schemas"]["AuditRecordItem"][];
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+      /** Total */
+      total: number;
+    };
+    /** CannedInstruction */
+    CannedInstruction: {
+      /** Description */
+      description: string;
+      /** Instruction */
+      instruction: string;
+    };
+    /** CannedInstructionsResponse */
+    CannedInstructionsResponse: {
+      /** Instructions */
+      instructions: components["schemas"]["CannedInstruction"][];
+    };
+    /** ChainStatus */
+    ChainStatus: {
+      /** Anchor Address */
+      anchor_address?: string | null;
+      /** Anchor Url */
+      anchor_url?: string | null;
+      /** Chain Id */
+      chain_id?: number | null;
+      /** Chain Name */
+      chain_name?: string | null;
+      /** Configured */
+      configured: boolean;
+      /** Connected */
+      connected: boolean;
+      /** Explorer Url */
+      explorer_url?: string | null;
+      /** Guardian Address */
+      guardian_address?: string | null;
+      /**
+       * Guardian Verified
+       * @default false
+       */
+      guardian_verified: boolean;
+      /** Public */
+      public?: boolean | null;
+      /** Rpc Url */
+      rpc_url?: string | null;
+    };
+    /**
+     * DecisionItem
+     * @description One policy-gate decision, projected from its audit record.
+     */
+    DecisionItem: {
+      /** Actor */
+      actor: string;
+      /** Decision Id */
+      decision_id: string;
+      /** Effect */
+      effect: string;
+      /** Matched Rules */
+      matched_rules?: string[];
+      /** Proposal */
+      proposal: {
+        [key: string]: unknown;
+      };
+      /** Status */
+      status?: string | null;
+      /** Ts */
+      ts: string;
+      /** Tx Hash */
+      tx_hash?: string | null;
+    };
+    /** DecisionsPage */
+    DecisionsPage: {
+      /** Items */
+      items: components["schemas"]["DecisionItem"][];
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+      /** Total */
+      total: number;
+    };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
+    };
+    /** InjectionStats */
+    InjectionStats: {
+      /** Attacks */
+      attacks: number;
+      /** Blocked */
+      blocked: number;
+      /** Bypasses */
+      bypasses: number;
+    };
+    /** MetricsResponse */
+    MetricsResponse: {
+      chain: components["schemas"]["ChainStatus"];
+      /** Counts By Effect */
+      counts_by_effect: {
+        [key: string]: number;
+      };
+      /** Escalation Rate */
+      escalation_rate: number;
+      injections?: components["schemas"]["InjectionStats"] | null;
+      last_anchor?: components["schemas"]["AnchorInfo"] | null;
+      /** Pending Count */
+      pending_count: number;
+      /** Total Decisions */
+      total_decisions: number;
+    };
+    /**
+     * PartyStatus
+     * @description On-chain standing of one address, as the policy gate would see it.
+     */
+    PartyStatus: {
+      /** Address */
+      address: string;
+      /** Compliant */
+      compliant?: boolean | null;
+      /** Frozen */
+      frozen?: boolean | null;
+      /** Known */
+      known: boolean;
+    };
+    /** PolicyResponse */
+    PolicyResponse: {
+      /** Allowlist */
+      allowlist: string[];
+      /** Default */
+      default: string;
+      /** Policy Hash */
+      policy_hash: string;
+      /** Rules */
+      rules: components["schemas"]["PolicyRuleView"][];
+      /** Version */
+      version: number;
+      /** Yaml */
+      yaml: string;
+    };
+    /** PolicyRuleView */
+    PolicyRuleView: {
+      /** Condition */
+      condition: string;
+      /** Effect */
+      effect: string;
+      /** Id */
+      id: string;
+    };
+    /** ProposalIn */
+    ProposalIn: {
+      /** Amount */
+      amount: number;
+      /**
+       * Asset Class
+       * @default 0
+       */
+      asset_class: number;
+      /** From */
+      from: string;
+      /** Operation */
+      operation: number;
+      /**
+       * Policy Result
+       * @default {}
+       */
+      policy_result: {
+        [key: string]: unknown;
+      };
+      /**
+       * Requester
+       * @default agent
+       */
+      requester: string;
+      /** To */
+      to: string;
+      /** Token */
+      token: string;
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Context */
+      ctx?: Record<string, never>;
+      /** Input */
+      input?: unknown;
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+    };
+    /** VerifyResponse */
+    VerifyResponse: {
+      /** Proof Ok */
+      PROOF_OK: boolean;
+      anchor?: components["schemas"]["AnchorInfo"] | null;
+      /** Batch Id */
+      batch_id?: number | null;
+      /** Decision Id */
+      decision_id: string;
+      /** Index */
+      index?: number | null;
+      /** Local Root */
+      local_root?: string | null;
+      /** Merkle Path */
+      merkle_path?: string[] | null;
+      /** Onchain Root */
+      onchain_root?: string | null;
+      /** Reason */
+      reason?: string | null;
+      /** Record */
+      record?: {
+        [key: string]: unknown;
+      } | null;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    index__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-        };
+  index__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    get_canned_instructions_agent_instructions_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CannedInstructionsResponse"];
-                };
-            };
+        content: {
+          "text/html": string;
         };
+      };
     };
-    run_agent_agent_run_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AgentRunRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentRunResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_canned_instructions_agent_instructions_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    anchor_records_anchor_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AnchorResponse"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["CannedInstructionsResponse"];
         };
+      };
     };
-    list_audit_records_audit_records_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditRecordsPage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  run_agent_agent_run_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    get_audit_record_audit_records__decision_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                decision_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditRecordDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AgentRunRequest"];
+      };
     };
-    verify_audit_record_audit_verify__decision_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                decision_id: string;
-            };
-            cookie?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VerifyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["AgentRunResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    get_party_status_compliance__address__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                address: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PartyStatus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  anchor_records_anchor_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    list_decisions_decisions_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DecisionsPage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["AnchorResponse"];
         };
+      };
     };
-    events_events_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
+  };
+  whoami_approvers_me_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path?: never;
+      cookie?: never;
     };
-    get_metrics_metrics_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MetricsResponse"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["ApproverOut"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    get_policy_policy_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PolicyResponse"];
-                };
-            };
-        };
+  };
+  list_audit_records_audit_records_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    list_proposals_proposals_get: {
-        parameters: {
-            query?: {
-                status?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["AuditRecordsPage"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    submit_proposals_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "idempotency-key"?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ProposalIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  get_audit_record_audit_records__decision_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        decision_id: string;
+      };
+      cookie?: never;
     };
-    get_proposal_proposals__decision_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                decision_id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["AuditRecordDetail"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    approve_proposals__decision_id__approve_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                decision_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ActionIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  verify_audit_record_audit_verify__decision_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        decision_id: string;
+      };
+      cookie?: never;
     };
-    reject_proposals__decision_id__reject_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                decision_id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ActionIn"];
-            };
+        content: {
+          "application/json": components["schemas"]["VerifyResponse"];
         };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
         };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
+  };
+  get_party_status_compliance__address__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        address: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PartyStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_decisions_decisions_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DecisionsPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  events_events_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  get_metrics_metrics_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MetricsResponse"];
+        };
+      };
+    };
+  };
+  get_policy_policy_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PolicyResponse"];
+        };
+      };
+    };
+  };
+  list_proposals_proposals_get: {
+    parameters: {
+      query?: {
+        status?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          }[];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  submit_proposals_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        "idempotency-key"?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProposalIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_proposal_proposals__decision_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        decision_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  approve_proposals__decision_id__approve_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        decision_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ActionIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reject_proposals__decision_id__reject_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        authorization?: string | null;
+      };
+      path: {
+        decision_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ActionIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
 }
