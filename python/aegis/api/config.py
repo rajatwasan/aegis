@@ -15,7 +15,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from aegis.approval.config import DEFAULT_GUARDIAN_KEY, ApprovalConfig
+from aegis.approval.config import ApprovalConfig, guardian_key_from_env
 
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:5173",
@@ -49,7 +49,7 @@ class ApiConfig(BaseModel):
             policy_path=os.environ.get("AEGIS_POLICY_PATH", "policies/default.yaml"),
             ttl_seconds=float(os.environ.get("AEGIS_APPROVAL_TTL_SECONDS", "900")),
             dual_control=os.environ.get("AEGIS_DUAL_CONTROL", "false").lower() == "true",
-            guardian_key=os.environ.get("AEGIS_GUARDIAN_KEY", DEFAULT_GUARDIAN_KEY),
+            guardian_key=guardian_key_from_env(),
             chain_id=int(os.environ.get("AEGIS_CHAIN_ID", str(state.get("chain_id", 31337)))),
         )
         cors = os.environ.get("AEGIS_CORS_ORIGINS")

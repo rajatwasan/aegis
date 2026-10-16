@@ -18,6 +18,26 @@ npm i -g vercel
 vercel login
 ```
 
+## 0b. Guardian key (required before anything else)
+
+The approval service refuses to start without `AEGIS_GUARDIAN_KEY`, and the
+contracts are deployed with that key's address as the token guardian. Generate
+a key that exists nowhere else and set it as a secret before `fly deploy`:
+
+```bash
+python - <<'PY'
+from eth_account import Account
+a = Account.create()
+print("guardian address:", a.address); print("AEGIS_GUARDIAN_KEY:", a.key.hex())
+PY
+fly secrets set AEGIS_GUARDIAN_KEY=0x<the key above>
+```
+
+Anvil's public development keys are refused unless `AEGIS_ALLOW_DEV_KEYS=true`;
+never set that on a hosted machine. At startup the API reads the token's
+`guardian()` and refuses to start if it differs from the configured key; check
+`/metrics` for `chain.guardian_verified: true` after deploy.
+
 ## 1. Backend (anvil + API) on Fly
 
 Files: `deploy/Dockerfile`, `deploy/start.sh`, `fly.toml`, `.dockerignore`.

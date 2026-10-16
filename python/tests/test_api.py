@@ -22,6 +22,7 @@ from aegis.api import ApiConfig, create_api_app
 from aegis.api.app import parse_eval_report
 from aegis.approval import ApprovalConfig
 from aegis.policy import load_policy
+from tests.conftest import KEYS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
@@ -38,6 +39,7 @@ def make_api_config(tmp_path: Path, **overrides) -> ApiConfig:
         audit_key_file=str(tmp_path / "audit.key"),
         policy_path=str(POLICY_PATH),
         ttl_seconds=overrides.pop("ttl_seconds", 900.0),
+        guardian_key=KEYS[9],  # W1: no default; tests say which dev key they sign with
     )
     defaults = dict(
         approval=approval,
@@ -234,6 +236,9 @@ class TestMetrics:
             "explorer_url": None,
             "anchor_address": None,
             "anchor_url": None,
+            # W1: no token to bind to, so the signer is unverified, not "verified by default"
+            "guardian_address": None,
+            "guardian_verified": False,
         }
 
     def test_parse_real_eval_report(self) -> None:

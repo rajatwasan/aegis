@@ -6,6 +6,7 @@ import { API_URL } from "../../api/client";
 import {
   ANCHOR_TX,
   EXPLORER,
+  makeChainStatus,
   makeLocalAnchor,
   makeLocalChainStatus,
   makeMetrics,
@@ -25,7 +26,9 @@ describe("Shell", () => {
       "Policy",
       "Console",
     ]) {
-      expect(within(nav).getByRole("link", { name: label })).toBeInTheDocument();
+      expect(
+        within(nav).getByRole("link", { name: label }),
+      ).toBeInTheDocument();
     }
   });
 
@@ -40,6 +43,24 @@ describe("Shell", () => {
     expect(within(statusBar).getByRole("link", { name: /tx/ })).toHaveAttribute(
       "href",
       `${EXPLORER}/tx/${ANCHOR_TX}`,
+    );
+    // W1: the API checked its signer against the token's guardian at startup
+    expect(within(statusBar).getByTestId("guardian-binding")).toHaveTextContent(
+      "guardian verified",
+    );
+  });
+
+  it("flags a server that reports an unverified guardian binding", async () => {
+    server.use(
+      http.get(`${API_URL}/metrics`, () =>
+        HttpResponse.json(
+          makeMetrics({ chain: makeChainStatus({ guardian_verified: false }) }),
+        ),
+      ),
+    );
+    renderApp(<App />);
+    expect(await screen.findByTestId("guardian-binding")).toHaveTextContent(
+      "guardian unverified",
     );
   });
 
@@ -78,6 +99,8 @@ describe("Shell", () => {
               explorer_url: null,
               anchor_address: null,
               anchor_url: null,
+              guardian_address: null,
+              guardian_verified: false,
             },
             last_anchor: null,
             pending_count: 0,

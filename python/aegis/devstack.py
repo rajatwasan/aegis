@@ -25,7 +25,10 @@ from web3 import Web3
 
 from aegis import chains
 from aegis.agent import ChainClient
-from aegis.demo import ACCOUNTS, KEYS, deploy
+from aegis.approval.config import DEV_KEYS_OPT_IN, guardian_key_from_env
+from aegis.demo import deploy
+from aegis.devkeys import KEYS, address_of
+from aegis.errors import ConfigError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -65,14 +68,33 @@ def _reusable(state: dict[str, Any], chain: ChainClient, chain_id: int) -> bool:
     return True
 
 
+def resolve_operator_key(explicit: str | None, environ: dict[str, str] | None = None) -> str:
+    """The deployer key: explicit, or anvil account 0 only when dev keys are opted in.
+
+    There is no silent fallback to a public key (AGENTS.md C3). The dev
+    scripts opt in; a hosted deployment must pass its own funded key.
+    """
+    if explicit:
+        return explicit
+    env = os.environ if environ is None else environ
+    if env.get(DEV_KEYS_OPT_IN, "").strip().lower() == "true":
+        return KEYS[0]
+    raise ConfigError(
+        "AEGIS_DEPLOYER_KEY (or --operator-key) is required to deploy; set "
+        f"{DEV_KEYS_OPT_IN}=true to use anvil account 0 on a local dev chain"
+    )
+
+
 def run(
     rpc_url: str,
     state_dir: Path,
+    guardian_key: str,
     operator_key: str | None = None,
     reuse: bool = False,
 ) -> int:
     state_dir.mkdir(parents=True, exist_ok=True)
-    operator_key = operator_key or KEYS[0]
+    operator_key = resolve_operator_key(operator_key)
+    guardian = address_of(guardian_key)
 
     chain_id = _detect_chain_id(rpc_url)
     meta = chains.chain_meta(chain_id, chains.explorer_from_env())
@@ -91,6 +113,14 @@ def run(
     if reuse and existing_path.exists():
         existing = json.loads(existing_path.read_text())
         if _reusable(existing, chain, chain_id):
+            if str(existing.get("guardian", "")).lower() != guardian.lower():
+                # a reused world whose token answers to another key is not
+                # reusable: the approval service could never sign for it (C8)
+                raise DeployError(
+                    f"existing deployment has guardian {existing.get('guardian')} but "
+                    f"AEGIS_GUARDIAN_KEY derives {guardian}; redeploy without --reuse "
+                    "or restore the original key"
+                )
             print(f"reusing {meta.name} deployment: anchor {existing['anchor_address']}")
             print(f"dev stack state -> {existing_path} (audit log preserved)")
             return 0
@@ -101,7 +131,7 @@ def run(
         (state_dir / stale).unlink(missing_ok=True)
 
     print(f"deploying Aegis suite on {meta.name} (chain {chain_id}) as {operator}")
-    deployment = deploy(chain, operator=operator, chain_id=chain_id)
+    deployment = deploy(chain, guardian_key=guardian_key, operator=operator, chain_id=chain_id)
 
     state = {
         "rpc_url": rpc_url,
@@ -111,7 +141,7 @@ def run(
         "public": meta.public,
         "operator_key": operator_key,
         "operator_address": operator,
-        "guardian": ACCOUNTS[9],
+        "guardian": guardian,
         "anchor_address": deployment["anchor"].address,
         "token_address": deployment["token"].address,
         "registry_address": deployment["registry"].address,
@@ -147,8 +177,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
-        return run(args.rpc_url, Path(args.state_dir), args.operator_key, args.reuse)
-    except DeployError as exc:
+        guardian_key = guardian_key_from_env()
+        return run(args.rpc_url, Path(args.state_dir), guardian_key, args.operator_key, args.reuse)
+    except (DeployError, ConfigError) as exc:
         # a readable line, not a traceback: deploy/start.sh reads the exit code
         # and falls back to a local anvil
         print(f"devstack: {exc}", file=sys.stderr)

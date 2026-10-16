@@ -413,6 +413,22 @@
             ],
             "title": "Explorer Url"
           },
+          "guardian_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Address"
+          },
+          "guardian_verified": {
+            "default": false,
+            "title": "Guardian Verified",
+            "type": "boolean"
+          },
           "public": {
             "anyOf": [
               {

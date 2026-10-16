@@ -421,6 +421,13 @@ export interface components {
             connected: boolean;
             /** Explorer Url */
             explorer_url?: string | null;
+            /** Guardian Address */
+            guardian_address?: string | null;
+            /**
+             * Guardian Verified
+             * @default false
+             */
+            guardian_verified: boolean;
             /** Public */
             public?: boolean | null;
             /** Rpc Url */

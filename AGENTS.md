@@ -120,9 +120,10 @@ first is the most important rule in this file.
   Everything else stops: deny, escalate, expire, or error.
 - C3 No secret has a default. Guardian keys, approver tokens, deployer keys
   and API keys are read from configuration and the process refuses to start
-  without them. A well known development key may appear only under
-  `python/tests/` or in a file whose name contains `dev`, and never as a
-  fallback value in code.
+  without them. A well known development key may appear only in the places
+  rule S2 lists (tests, the demo and eval tooling that own a throwaway
+  anvil, the dev policy, and `scripts/`), always set explicitly and opted
+  in, and never as a fallback value in library code.
 - C4 Identity comes from authentication, never from the request body. The
   approver of record is derived from the credential that authenticated the
   request. A client supplied name is display metadata at most.
