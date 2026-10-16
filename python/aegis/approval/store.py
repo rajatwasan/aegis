@@ -44,12 +44,19 @@ EXPIRED = "expired"
 
 
 class ProposalStore:
-    """Thread-safe wrapper around one SQLite database."""
+    """Thread-safe wrapper around one SQLite database.
+
+    One connection is shared by the request threads and the agent runner's
+    worker thread (``check_same_thread=False``), and a sqlite3 connection is
+    not safe to use from two threads at once: reads as well as writes go
+    through ``_lock``. It is re-entrant because the write paths read back the
+    row they changed while still holding it.
+    """
 
     def __init__(self, db_path: str) -> None:
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         with self._lock, self._conn:
             self._conn.executescript(_SCHEMA)
             # databases created before the evidence column existed (W10)
@@ -86,18 +93,20 @@ class ProposalStore:
             return self.get(decision_id), True
 
     def get(self, decision_id: str) -> dict[str, Any] | None:
-        row = self._conn.execute(
-            "SELECT * FROM proposals WHERE decision_id = ?", (decision_id,)
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM proposals WHERE decision_id = ?", (decision_id,)
+            ).fetchone()
         return self._to_dict(row) if row is not None else None
 
     def list(self, status: str | None = None) -> list[dict[str, Any]]:
-        if status is None:
-            rows = self._conn.execute("SELECT * FROM proposals ORDER BY created_at").fetchall()
-        else:
-            rows = self._conn.execute(
-                "SELECT * FROM proposals WHERE status = ? ORDER BY created_at", (status,)
-            ).fetchall()
+        with self._lock:
+            if status is None:
+                rows = self._conn.execute("SELECT * FROM proposals ORDER BY created_at").fetchall()
+            else:
+                rows = self._conn.execute(
+                    "SELECT * FROM proposals WHERE status = ? ORDER BY created_at", (status,)
+                ).fetchall()
         return [self._to_dict(r) for r in rows]
 
     def add_approval(
@@ -188,20 +197,25 @@ class ProposalStore:
         return self.get_approver(approver_id.strip())  # type: ignore[return-value]
 
     def get_approver(self, approver_id: str) -> dict[str, Any] | None:
-        row = self._conn.execute("SELECT * FROM approvers WHERE id = ?", (approver_id,)).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM approvers WHERE id = ?", (approver_id,)
+            ).fetchone()
         return dict(row) if row is not None else None
 
     def get_approver_by_token_hash(self, token_hash: str) -> dict[str, Any] | None:
-        row = self._conn.execute(
-            "SELECT * FROM approvers WHERE token_hash = ?", (token_hash,)
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM approvers WHERE token_hash = ?", (token_hash,)
+            ).fetchone()
         return dict(row) if row is not None else None
 
     def list_approvers(self) -> list[dict[str, Any]]:
         """Approvers without their hashes: ids, names and timestamps only."""
-        rows = self._conn.execute(
-            "SELECT id, display_name, created_at, revoked_at FROM approvers ORDER BY created_at"
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, display_name, created_at, revoked_at FROM approvers ORDER BY created_at"
+            ).fetchall()
         return [dict(r) for r in rows]
 
     def revoke_approver(self, approver_id: str) -> dict[str, Any]:
