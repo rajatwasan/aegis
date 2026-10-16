@@ -55,9 +55,7 @@ contract GuardedToken is ERC20, GuardianModule {
     }
 
     /// @notice Mint via guardian authorization. from must be the zero address.
-    function mintWithAuthorization(Authorization calldata auth, bytes calldata signature)
-        external
-    {
+    function mintWithAuthorization(Authorization calldata auth, bytes calldata signature) external {
         _consumeAuthorization(auth, signature, OP_MINT, address(0), auth.to, 0, auth.amount);
         _authorized = true;
         _mint(auth.to, auth.amount);
@@ -65,9 +63,7 @@ contract GuardedToken is ERC20, GuardianModule {
     }
 
     /// @notice Burn via guardian authorization. to must be the zero address.
-    function burnWithAuthorization(Authorization calldata auth, bytes calldata signature)
-        external
-    {
+    function burnWithAuthorization(Authorization calldata auth, bytes calldata signature) external {
         _consumeAuthorization(auth, signature, OP_BURN, auth.from, address(0), 0, auth.amount);
         _authorized = true;
         _burn(auth.from, auth.amount);

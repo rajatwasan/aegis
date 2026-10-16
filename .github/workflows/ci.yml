@@ -1,9 +1,19 @@
 name: ci
 
+# The jobs below together equal `make check` plus the browser smoke
+# (AGENTS.md appendix B, V2, V5). Toolchains are pinned so a formatter or
+# compiler release cannot turn main red on its own (forge fmt drifted between
+# 0.2 and 1.5 and did exactly that).
+
 on:
   push:
     branches: [main]
   pull_request:
+
+env:
+  FOUNDRY_VERSION: v1.5.1
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
 
 jobs:
   contracts:
@@ -13,10 +23,12 @@ jobs:
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
       - name: Format check
         run: forge fmt --check
         working-directory: contracts
-      - name: Tests
+      - name: Tests (fuzz and invariant at configured runs)
         run: forge test -vvv
         working-directory: contracts
 
@@ -24,10 +36,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
       - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
       - name: Install
         run: |
           python -m pip install --upgrade pip
@@ -39,6 +55,10 @@ jobs:
           ruff format --check python/
       - name: Tests
         run: pytest python/tests -q
+      - name: Evals regenerate the committed report (T5)
+        run: |
+          python -m aegis.evals_harness
+          git diff --exit-code -- evals/report.md
 
   frontend:
     runs-on: ubuntu-latest
@@ -49,7 +69,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install
@@ -62,3 +82,46 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+
+  e2e:
+    # The whole stack in a real browser: anvil, deployed contracts, API, vite,
+    # driven through the console (V5). Chrome is preinstalled on the runner;
+    # the Playwright config uses it through the chrome channel.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Python environment (dev-stack.sh expects .venv)
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.lock
+          .venv/bin/pip install -e python/
+      - name: Contracts
+        run: forge build
+        working-directory: contracts
+      - name: Frontend dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Browser smoke
+        run: npm run e2e
+        working-directory: frontend
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: frontend/test-results
+          if-no-files-found: ignore

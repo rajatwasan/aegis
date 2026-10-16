@@ -52,9 +52,7 @@ contract GuardedAsset1155 is ERC1155, GuardianModule {
     }
 
     /// @notice Mint via guardian authorization. from must be the zero address.
-    function mintWithAuthorization(Authorization calldata auth, bytes calldata signature)
-        external
-    {
+    function mintWithAuthorization(Authorization calldata auth, bytes calldata signature) external {
         _consumeAuthorization(auth, signature, OP_MINT, address(0), auth.to, auth.id, auth.amount);
         _authorized = true;
         _mint(auth.to, auth.id, auth.amount, "");
