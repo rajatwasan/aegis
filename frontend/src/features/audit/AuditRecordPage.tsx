@@ -129,7 +129,9 @@ function ChainView({
                   : "border-edge bg-panel",
               )}
             >
-              <span className="mono text-xs text-ink-faint">#{record.index}</span>
+              <span className="mono text-xs text-ink-faint">
+                #{record.index}
+              </span>
               <Link
                 to={`/audit/${record.decision_id}`}
                 className="mono text-[12px] text-accent hover:underline"
@@ -186,18 +188,29 @@ function VerifyPanel({ result }: { result: VerifyResponse }) {
           className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-faint"
         >
           <span>
-            anchored on <span className="text-ink-dim">{anchor.chain_name}</span>
+            anchored on{" "}
+            <span className="text-ink-dim">{anchor.chain_name}</span>
           </span>
-          {anchor.block_number !== null && anchor.block_number !== undefined && (
-            <span>
-              block <span className="mono text-ink-dim">{anchor.block_number}</span>
+          {anchor.block_number !== null &&
+            anchor.block_number !== undefined && (
+              <span>
+                block{" "}
+                <span className="mono text-ink-dim">{anchor.block_number}</span>
+              </span>
+            )}
+          {typeof anchor.anchored_at === "string" && (
+            <span title={anchor.anchored_at}>
+              {relativeTime(anchor.anchored_at)}
             </span>
           )}
-          {typeof anchor.anchored_at === "string" && (
-            <span title={anchor.anchored_at}>{relativeTime(anchor.anchored_at)}</span>
-          )}
-          <TxLink txHash={anchor.tx_hash} txUrl={anchor.tx_url} label="anchor tx" />
-          <ExplorerLink url={anchor.anchor_url}>AuditAnchor contract</ExplorerLink>
+          <TxLink
+            txHash={anchor.tx_hash}
+            txUrl={anchor.tx_url}
+            label="anchor tx"
+          />
+          <ExplorerLink url={anchor.anchor_url}>
+            AuditAnchor contract
+          </ExplorerLink>
         </div>
       )}
 

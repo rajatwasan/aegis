@@ -8,13 +8,14 @@ import {
 } from "../../api/queries";
 import type { ProposalRow } from "../../api/types";
 import { Page } from "../../components/layout/Page";
+import { ApproverIdentity } from "../../components/ui/ApproverIdentity";
 import { Badge, Dot, StatusBadge } from "../../components/ui/Badge";
 import { Amount, HashChip } from "../../components/ui/Mono";
 import { Countdown } from "../../components/ui/Time";
 import { EmptyState, ErrorState } from "../../components/ui/States";
 import { useBusSubscription } from "../../lib/EventsProvider";
 import type { BusEvent } from "../../lib/events";
-import { useApprover } from "../../lib/approver";
+import { useApproverToken, useResolvedApprover } from "../../lib/approver";
 import { cn, operationName } from "../../lib/format";
 import type { Tone } from "../../lib/tone";
 
@@ -28,7 +29,8 @@ export function ConsolePage() {
   const run = useRunAgent();
   const [instruction, setInstruction] = useState("");
   const [steps, setSteps] = useState<BusEvent[]>([]);
-  const [approver, setApprover] = useApprover();
+  const [token, setToken] = useApproverToken();
+  const { canAct } = useResolvedApprover(token);
 
   useBusSubscription(
     useCallback((event: BusEvent) => {
@@ -50,18 +52,7 @@ export function ConsolePage() {
     <Page
       title="Console"
       subtitle="instruct the agent, watch the gate act"
-      actions={
-        <label className="flex items-center gap-2 text-xs text-ink-dim">
-          acting as
-          <input
-            type="text"
-            value={approver}
-            placeholder="your name"
-            onChange={(e) => setApprover(e.target.value)}
-            className="w-36 rounded border border-edge bg-panel px-2 py-1 text-xs text-ink placeholder:text-ink-faint focus:border-edge-2 focus:outline-none"
-          />
-        </label>
-      }
+      actions={<ApproverIdentity token={token} onChange={setToken} />}
     >
       <div className="border-b border-edge px-5 py-4">
         <form
@@ -135,7 +126,7 @@ export function ConsolePage() {
 
         <section aria-label="escalations" className="min-h-64 overflow-y-auto">
           <SectionHeader>Escalations</SectionHeader>
-          <EscalationsPanel approver={approver} />
+          <EscalationsPanel canAct={canAct} />
         </section>
       </div>
     </Page>
@@ -179,7 +170,10 @@ function describeStep(event: BusEvent): string {
   if (phase === "node") {
     const node = String(data.node ?? "");
     if (node === "supervisor") {
-      const action = data.action as { tool?: string; args?: Record<string, unknown> } | null;
+      const action = data.action as {
+        tool?: string;
+        args?: Record<string, unknown>;
+      } | null;
       if (action && typeof action.tool === "string") {
         const amount = action.args?.amount;
         return `plans ${action.tool}${typeof amount === "number" ? ` (${amount.toLocaleString("en-US")})` : ""}`;
@@ -187,8 +181,7 @@ function describeStep(event: BusEvent): string {
       return "supervisor: done";
     }
     const result = data.result as
-      | { effect?: string; status?: string; tx_hash?: string }
-      | undefined;
+      { effect?: string; status?: string; tx_hash?: string } | undefined;
     if (result !== undefined) {
       const parts = [
         result.effect !== undefined && `policy: ${result.effect}`,
@@ -202,7 +195,7 @@ function describeStep(event: BusEvent): string {
   return "";
 }
 
-function EscalationsPanel({ approver }: { approver: string }) {
+function EscalationsPanel({ canAct }: { canAct: boolean }) {
   const pending = usePendingProposals();
   const rows = [...(pending.data ?? [])].sort(
     (a, b) => b.created_at - a.created_at,
@@ -227,7 +220,7 @@ function EscalationsPanel({ approver }: { approver: string }) {
   return (
     <ul className="space-y-3 px-5 pb-4">
       {rows.map((row) => (
-        <EscalationCard key={row.decision_id} row={row} approver={approver} />
+        <EscalationCard key={row.decision_id} row={row} canAct={canAct} />
       ))}
     </ul>
   );
@@ -235,23 +228,22 @@ function EscalationsPanel({ approver }: { approver: string }) {
 
 function EscalationCard({
   row,
-  approver,
+  canAct,
 }: {
   row: ProposalRow;
-  approver: string;
+  canAct: boolean;
 }) {
   const approve = useApproveProposal();
   const reject = useRejectProposal();
   const [comment, setComment] = useState("");
 
   const busy = approve.isPending || reject.isPending;
-  const disabled = busy || approver.trim() === "" || comment.trim() === "";
+  const disabled = busy || !canAct || comment.trim() === "";
   const error = approve.error ?? reject.error;
 
   const act = (action: "approve" | "reject") => {
     (action === "approve" ? approve : reject).mutate({
       decisionId: row.decision_id,
-      approver: approver.trim(),
       comment: comment.trim(),
     });
   };

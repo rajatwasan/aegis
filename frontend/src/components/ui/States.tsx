@@ -22,13 +22,7 @@ export function SkeletonRows({ rows = 4 }: { rows?: number }) {
   );
 }
 
-export function EmptyState({
-  title,
-  hint,
-}: {
-  title: string;
-  hint?: string;
-}) {
+export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="flex flex-col items-center gap-1 px-6 py-14 text-center">
       <p className="text-ink-dim">{title}</p>

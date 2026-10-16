@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from aegis.api import ApiConfig, create_api_app
 from aegis.approval import ApprovalConfig
 from aegis.errors import GuardianMismatch, GuardianUnverified
-from tests.conftest import ACCOUNTS, GUARDIAN, KEYS, OPERATOR
+from tests.conftest import ACCOUNTS, GUARDIAN, KEYS, OPERATOR, bearer, register_approver
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
@@ -284,9 +284,9 @@ class TestAgentRun:
         decision_id = pending[0]["decision_id"]
         assert pending[0]["proposal"]["amount"] == 50_000
 
+        tester = bearer(register_approver(chain_app, "console-tester"))
         approve = client.post(
-            f"/proposals/{decision_id}/approve",
-            json={"approver": "console-tester", "comment": "reviewed"},
+            f"/proposals/{decision_id}/approve", json={"comment": "reviewed"}, headers=tester
         )
         assert approve.status_code == 200
 

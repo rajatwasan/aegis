@@ -11,6 +11,7 @@ import pytest
 from web3 import Web3
 
 from aegis.agent.chain import ChainClient
+from aegis.approval.identity import hash_token, new_token
 from aegis.approval.signer import GuardianSigner, build_authorization
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -33,6 +34,17 @@ GUARDIAN = ACCOUNTS[9]
 FROZEN_ACCOUNT = ACCOUNTS[4]
 THRESHOLD = 10_000
 CHAIN_ID = 31337
+
+
+def register_approver(app, approver_id: str, display_name: str | None = None) -> str:
+    """Create an approver in the app's store and return the bearer token (W2)."""
+    token = new_token()
+    app.state.store.add_approver(approver_id, display_name or approver_id, hash_token(token))
+    return token
+
+
+def bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _free_port() -> int:

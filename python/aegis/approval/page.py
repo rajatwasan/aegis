@@ -19,7 +19,9 @@ APPROVAL_PAGE = """<!DOCTYPE html>
 </head>
 <body>
 <h1>Aegis — pending approvals</h1>
-<p>Approver: <input id="approver" value="ops-1"> Comment: <input id="comment" size="40"></p>
+<p>Approver token: <input id="token" type="password" size="44" placeholder="aegis approver add">
+   Comment: <input id="comment" size="40"></p>
+<p id="who" style="color:#777">not signed in</p>
 <table id="tbl" hidden>
   <thead><tr>
     <th>Decision</th><th>Op</th><th>From</th><th>To</th><th>Class</th><th>Amount</th>
@@ -54,17 +56,30 @@ async function refresh() {
     rows.appendChild(tr);
   }
 }
+function authHeaders() {
+  const token = document.getElementById('token').value.trim();
+  return token ? {'Authorization': `Bearer ${token}`} : {};
+}
+async function whoami() {
+  const who = document.getElementById('who');
+  const res = await fetch('/approvers/me', {headers: authHeaders()});
+  if (res.ok) {
+    const me = await res.json();
+    who.textContent = `signed in as ${me.display_name} (${me.id})`;
+  } else {
+    who.textContent = res.status === 401 ? 'token not recognized' : 'not signed in';
+  }
+}
 async function act(id, action) {
-  await fetch(`/proposals/${id}/${action}`, {
+  const res = await fetch(`/proposals/${id}/${action}`, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      approver: document.getElementById('approver').value,
-      comment: document.getElementById('comment').value,
-    }),
+    headers: {'Content-Type': 'application/json', ...authHeaders()},
+    body: JSON.stringify({comment: document.getElementById('comment').value}),
   });
+  if (res.status === 401) { alert('approver token required or not recognized'); }
   refresh();
 }
+document.getElementById('token').addEventListener('change', whoami);
 refresh();
 setInterval(refresh, 3000);
 </script>

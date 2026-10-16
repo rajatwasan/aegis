@@ -3,25 +3,35 @@
 Escalated proposals arrive here, wait for a human (or two, in dual-control
 mode), and on approval receive a guardian EIP-712 signature the agent can
 submit on-chain. Every resolution is written to the audit log.
+
+Who approved is never taken from the request body. Approve and reject require
+an approver credential (``Authorization: Bearer <token>``), the identity is
+resolved server side (:mod:`aegis.approval.identity`), and every path that
+resolves a decision goes through :func:`resolve_decision` so there is exactly
+one place that records an approval, signs an authorization and writes the
+audit record (AGENTS.md C4, C6, I2; spec W2, decision D1).
 """
 
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI, Header, HTTPException, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from aegis.approval import store as st
 from aegis.approval.config import ApprovalConfig
+from aegis.approval.identity import Approver, Unauthenticated, resolve_approver
 from aegis.approval.page import APPROVAL_PAGE
 from aegis.approval.signer import GuardianSigner, authorization_to_json, build_authorization
 from aegis.approval.store import ProposalStore
 from aegis.audit import AuditLog, AuditSigner
 from aegis.events import EmittingAuditLog, EventBus
 from aegis.policy import load_policy
+
+Action = Literal["approve", "reject"]
 
 
 class ProposalIn(BaseModel):
@@ -38,8 +48,36 @@ class ProposalIn(BaseModel):
 
 
 class ActionIn(BaseModel):
-    approver: str
+    """Body of approve and reject: the comment, and nothing else.
+
+    ``extra="forbid"`` so a client that still sends ``approver`` (the pre W2
+    shape) gets a 422 naming the field instead of being silently ignored.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     comment: str = ""
+
+
+class ApproverOut(BaseModel):
+    id: str
+    display_name: str
+    auth_method: str
+
+
+def require_approver(
+    request: Request, authorization: str | None = Header(default=None)
+) -> Approver:
+    """FastAPI dependency: the authenticated approver, or 401 before any work (C4)."""
+    try:
+        return resolve_approver(request.app.state.store, authorization)
+    except Unauthenticated as exc:
+        raise HTTPException(
+            401, str(exc), headers={"WWW-Authenticate": 'Bearer realm="aegis-approvals"'}
+        ) from exc
+
+
+AuthedApprover = Annotated[Approver, Depends(require_approver)]
 
 
 def create_app(config: ApprovalConfig | None = None, bus: EventBus | None = None) -> FastAPI:
@@ -90,6 +128,81 @@ def create_app(config: ApprovalConfig | None = None, bus: EventBus | None = None
             "expires_at": row["expires_at"],
         }
 
+    # ------------------------------------------------------------ resolver
+
+    def resolve_decision(
+        decision_id: str,
+        approver: Approver,
+        action: Action,
+        comment: str,
+        evidence: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """The one code path that records a human decision.
+
+        ``approver`` is an authenticated identity (token today, passkey with
+        W10). ``evidence`` is extra verified material (a passkey assertion) that
+        is written into the audit record before hashing so the chain covers it.
+        """
+        sweep()
+        row = _pending_or_409(decision_id)
+        identity = approver.as_record()
+
+        if action == "reject":
+            resolution = {"action": "rejected", **identity, "comment": comment}
+            if evidence is not None:
+                resolution["evidence"] = evidence
+            row = app.state.store.resolve(decision_id, st.REJECTED, resolution)
+            _write_audit(row, resolution)
+            _emit("proposal.rejected", row)
+            return row
+
+        if any(a["approver"] == approver.id for a in row["approvals"]):
+            raise HTTPException(409, "approver already recorded for this proposal")
+        row = app.state.store.add_approval(decision_id, identity, comment)
+
+        required = 2 if config.dual_control else 1
+        if len(row["approvals"]) < required:
+            return row  # stays pending, waiting for a second, distinct approver
+
+        prop = row["proposal"]
+        nonce = app.state.store.next_nonce()
+        authorization = build_authorization(
+            decision_id=decision_id,
+            operation=prop["operation"],
+            token=prop["token"],
+            from_addr=prop["from"],
+            to=prop["to"],
+            asset_class=prop.get("asset_class", 0),
+            amount=prop["amount"],
+            policy_hash=app.state.policy.policy_hash,
+            nonce=nonce,
+            deadline=int(time.time()) + config.auth_deadline_seconds,
+        )
+        signature = app.state.signer.sign_authorization(authorization)
+        resolution: dict[str, Any] = {
+            "action": "approved",
+            "approvers": [a["approver"] for a in row["approvals"]],
+            "auth_methods": [a.get("auth_method") for a in row["approvals"]],
+            "comment": comment,
+        }
+        if evidence is not None:
+            resolution["evidence"] = evidence
+        row = app.state.store.resolve(
+            decision_id,
+            st.APPROVED,
+            resolution,
+            authorization=authorization_to_json(authorization),
+            signature=signature,
+            nonce=nonce,
+        )
+        _write_audit(row, resolution)
+        _emit("proposal.approved", row)
+        return row
+
+    app.state.resolve_decision = resolve_decision
+
+    # --------------------------------------------------------------- routes
+
     @app.get("/", response_class=HTMLResponse)
     def index() -> str:
         return APPROVAL_PAGE
@@ -123,59 +236,19 @@ def create_app(config: ApprovalConfig | None = None, bus: EventBus | None = None
             raise HTTPException(404, "unknown decision id")
         return _public(row)
 
+    @app.get("/approvers/me", response_model=ApproverOut)
+    def whoami(approver: AuthedApprover) -> ApproverOut:
+        return ApproverOut(
+            id=approver.id, display_name=approver.display_name, auth_method=approver.auth_method
+        )
+
     @app.post("/proposals/{decision_id}/approve")
-    def approve(decision_id: str, body: ActionIn) -> dict[str, Any]:
-        sweep()
-        row = _pending_or_409(decision_id)
-        if any(a["approver"] == body.approver for a in row["approvals"]):
-            raise HTTPException(409, "approver already recorded for this proposal")
-        row = app.state.store.add_approval(decision_id, body.approver, body.comment)
-
-        required = 2 if config.dual_control else 1
-        if len(row["approvals"]) < required:
-            return _public(row)  # stays pending, waiting for the second approver
-
-        prop = row["proposal"]
-        nonce = app.state.store.next_nonce()
-        authorization = build_authorization(
-            decision_id=decision_id,
-            operation=prop["operation"],
-            token=prop["token"],
-            from_addr=prop["from"],
-            to=prop["to"],
-            asset_class=prop.get("asset_class", 0),
-            amount=prop["amount"],
-            policy_hash=app.state.policy.policy_hash,
-            nonce=nonce,
-            deadline=int(time.time()) + config.auth_deadline_seconds,
-        )
-        signature = app.state.signer.sign_authorization(authorization)
-        resolution = {
-            "action": "approved",
-            "approvers": [a["approver"] for a in row["approvals"]],
-            "comment": body.comment,
-        }
-        row = app.state.store.resolve(
-            decision_id,
-            st.APPROVED,
-            resolution,
-            authorization=authorization_to_json(authorization),
-            signature=signature,
-            nonce=nonce,
-        )
-        _write_audit(row, resolution)
-        _emit("proposal.approved", row)
-        return _public(row)
+    def approve(decision_id: str, body: ActionIn, approver: AuthedApprover) -> dict[str, Any]:
+        return _public(resolve_decision(decision_id, approver, "approve", body.comment))
 
     @app.post("/proposals/{decision_id}/reject")
-    def reject(decision_id: str, body: ActionIn) -> dict[str, Any]:
-        sweep()
-        _pending_or_409(decision_id)
-        resolution = {"action": "rejected", "approver": body.approver, "comment": body.comment}
-        row = app.state.store.resolve(decision_id, st.REJECTED, resolution)
-        _write_audit(row, resolution)
-        _emit("proposal.rejected", row)
-        return _public(row)
+    def reject(decision_id: str, body: ActionIn, approver: AuthedApprover) -> dict[str, Any]:
+        return _public(resolve_decision(decision_id, approver, "reject", body.comment))
 
     def _pending_or_409(decision_id: str) -> dict[str, Any]:
         row = app.state.store.get(decision_id)

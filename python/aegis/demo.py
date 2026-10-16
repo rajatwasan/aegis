@@ -26,6 +26,7 @@ from langgraph.types import Command
 from aegis.agent import AegisRuntime, ChainClient, MockLLM, build_graph
 from aegis.approval import ApprovalConfig, GuardianSigner, build_authorization, create_app
 from aegis.approval.config import guardian_key_from_env
+from aegis.approval.identity import hash_token, new_token
 from aegis.audit import AuditLog, AuditSigner
 from aegis.devkeys import ACCOUNTS, KEYS, address_of
 from aegis.policy import load_policy
@@ -138,7 +139,12 @@ def run(rpc_url: str, state_dir: Path, guardian_key: str) -> int:
     )
     for stale in (state_dir / "approvals.db", state_dir / "audit.jsonl"):
         stale.unlink(missing_ok=True)
-    approval = TestClient(create_app(config))
+    approval_app = create_app(config)
+    approval = TestClient(approval_app)
+    # the demo stands in for the human: a registered approver with a token the
+    # agent never sees (W2). The runtime's client below carries no credential.
+    demo_token = new_token()
+    approval_app.state.store.add_approver("demo-operator", "Demo operator", hash_token(demo_token))
     audit_signer = AuditSigner.load_or_create(config.audit_key_file)
     audit = AuditLog(config.audit_log_path, audit_signer)
     runtime = AegisRuntime(
@@ -177,11 +183,13 @@ def run(rpc_url: str, state_dir: Path, guardian_key: str) -> int:
     decision_id = pending[0]["decision_id"]
 
     _rule("[3/5] Human approves the escalated transfer; guardian co-signs (EIP-712)")
-    approval.post(
+    approved = approval.post(
         f"/proposals/{decision_id}/approve",
-        json={"approver": "demo-operator", "comment": "reviewed and approved"},
+        json={"comment": "reviewed and approved"},
+        headers={"Authorization": f"Bearer {demo_token}"},
     )
-    print(f"  approved decision {decision_id}")
+    assert approved.status_code == 200, approved.text
+    print(f"  approved decision {decision_id} as demo-operator (token authenticated)")
     state = graph.invoke(Command(resume="approved"), graph_config)
     resumed = [r for r in state["results"] if r.get("approval_status") == "approved"]
     print(f"  guardian-signed transfer executed: tx {resumed[0]['tx_hash']}")

@@ -22,7 +22,7 @@ from aegis.api import ApiConfig, create_api_app
 from aegis.api.app import parse_eval_report
 from aegis.approval import ApprovalConfig
 from aegis.policy import load_policy
-from tests.conftest import KEYS
+from tests.conftest import KEYS, bearer, register_approver
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
@@ -110,7 +110,8 @@ class TestBusEvents:
             decision_id
         ]
 
-        client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
+        ops1 = bearer(register_approver(app, "ops-1"))
+        client.post(f"/proposals/{decision_id}/approve", json={}, headers=ops1)
         approved = bus.events_of("proposal.approved")
         assert approved and approved[-1]["data"]["status"] == "approved"
         # the resolution was audited, and the audit log emitted decision.recorded
@@ -120,7 +121,8 @@ class TestBusEvents:
     def test_reject_and_expire_emit_events(self, app, client: TestClient, tmp_path) -> None:
         bus = app.state.bus
         decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        client.post(f"/proposals/{decision_id}/reject", json={"approver": "ops-1"})
+        ops1 = bearer(register_approver(app, "ops-1"))
+        client.post(f"/proposals/{decision_id}/reject", json={}, headers=ops1)
         assert bus.events_of("proposal.rejected")
 
         expiring_app = create_api_app(make_api_config(tmp_path / "exp", ttl_seconds=0.0))

@@ -66,7 +66,9 @@ export function AuditPage() {
                 key={record.record_hash}
                 className="border-b border-edge/60 transition-colors hover:bg-panel"
               >
-                <td className="mono px-4 py-2 text-ink-faint">{record.index}</td>
+                <td className="mono px-4 py-2 text-ink-faint">
+                  {record.index}
+                </td>
                 <td className="px-2 py-2">
                   <Link
                     to={`/audit/${record.decision_id}`}
@@ -136,7 +138,9 @@ function Pager({
         newer
       </button>
       <span className="mono">
-        {total === 0 ? "0" : `${offset + 1}–${Math.min(offset + pageSize, total)}`}{" "}
+        {total === 0
+          ? "0"
+          : `${offset + 1}–${Math.min(offset + pageSize, total)}`}{" "}
         of {total}
       </span>
       <button

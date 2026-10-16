@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePendingProposals } from "../../api/queries";
 import type { ProposalRow } from "../../api/types";
 import { Page } from "../../components/layout/Page";
+import { ApproverIdentity } from "../../components/ui/ApproverIdentity";
 import { Badge } from "../../components/ui/Badge";
 import { Amount, HashChip } from "../../components/ui/Mono";
 import { Countdown, TimeAgo } from "../../components/ui/Time";
@@ -11,7 +12,7 @@ import {
   ErrorState,
   SkeletonRows,
 } from "../../components/ui/States";
-import { useApprover } from "../../lib/approver";
+import { useApproverToken, useResolvedApprover } from "../../lib/approver";
 import { cn, operationName } from "../../lib/format";
 import { useNow } from "../../lib/useNow";
 import { ProposalDrawer } from "./ProposalDrawer";
@@ -25,13 +26,17 @@ export function ApprovalsPage() {
   const proposals = usePendingProposals();
   const [selected, setSelected] = useState<string | null>(null);
   const [intent, setIntent] = useState<"approve" | "reject" | null>(null);
-  const [approver, setApprover] = useApprover();
+  const [token, setToken] = useApproverToken();
+  const { canAct, displayName } = useResolvedApprover(token);
 
   const rows = [...(proposals.data ?? [])].sort(
     (a, b) => b.created_at - a.created_at,
   );
 
-  const open = (decisionId: string, withIntent: "approve" | "reject" | null) => {
+  const open = (
+    decisionId: string,
+    withIntent: "approve" | "reject" | null,
+  ) => {
     setSelected(decisionId);
     setIntent(withIntent);
   };
@@ -60,7 +65,7 @@ export function ApprovalsPage() {
     <Page
       title="Approvals"
       subtitle="escalated proposals awaiting a guardian"
-      actions={<ApproverIdentity value={approver} onChange={setApprover} />}
+      actions={<ApproverIdentity token={token} onChange={setToken} />}
     >
       {proposals.isPending ? (
         <SkeletonRows rows={5} />
@@ -102,7 +107,8 @@ export function ApprovalsPage() {
       {selected !== null && (
         <ProposalDrawer
           decisionId={selected}
-          approver={approver}
+          canAct={canAct}
+          approverName={displayName}
           intent={intent}
           onClose={() => setSelected(null)}
         />
@@ -173,29 +179,5 @@ function Row({ row, onOpen }: { row: ProposalRow; onOpen: () => void }) {
         <TimeAgo value={row.created_at} />
       </td>
     </tr>
-  );
-}
-
-function ApproverIdentity({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (name: string) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-xs text-ink-dim">
-      acting as
-      <input
-        type="text"
-        value={value}
-        placeholder="your name"
-        onChange={(e) => onChange(e.target.value)}
-        className={cn(
-          "w-36 rounded border border-edge bg-panel px-2 py-1 text-xs text-ink",
-          "placeholder:text-ink-faint focus:border-edge-2 focus:outline-none",
-        )}
-      />
-    </label>
   );
 }

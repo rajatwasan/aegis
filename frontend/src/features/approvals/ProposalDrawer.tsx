@@ -20,12 +20,15 @@ import { cn, operationName } from "../../lib/format";
  */
 export function ProposalDrawer({
   decisionId,
-  approver,
+  canAct,
+  approverName,
   intent = null,
   onClose,
 }: {
   decisionId: string;
-  approver: string;
+  /** True when the viewer's approver token resolved on the server (W2). */
+  canAct: boolean;
+  approverName: string | null;
   /** Set by the a/r shortcuts: focuses the comment and arms Enter-to-act. */
   intent?: "approve" | "reject" | null;
   onClose: () => void;
@@ -67,7 +70,8 @@ export function ProposalDrawer({
         ) : (
           <DrawerBody
             row={detail.data}
-            approver={approver}
+            canAct={canAct}
+            approverName={approverName}
             intent={intent}
             onClose={onClose}
           />
@@ -79,12 +83,14 @@ export function ProposalDrawer({
 
 function DrawerBody({
   row,
-  approver,
+  canAct,
+  approverName,
   intent,
   onClose,
 }: {
   row: ProposalRow;
-  approver: string;
+  canAct: boolean;
+  approverName: string | null;
   intent: "approve" | "reject" | null;
   onClose: () => void;
 }) {
@@ -94,7 +100,12 @@ function DrawerBody({
     <>
       <header className="flex items-center gap-3 border-b border-edge px-5 py-4">
         <StatusBadge value={row.status} />
-        <HashChip value={row.decision_id} head={8} tail={6} className="text-ink-dim" />
+        <HashChip
+          value={row.decision_id}
+          head={8}
+          tail={6}
+          className="text-ink-dim"
+        />
         <span className="ml-auto text-xs text-ink-dim">
           expires <Countdown expiresAt={row.expires_at} />
         </span>
@@ -150,8 +161,16 @@ function DrawerBody({
           </p>
           <ul className="space-y-1.5">
             {row.approvals.map((a) => (
-              <li key={a.approver} className="flex items-baseline gap-2 text-[13px]">
-                <span className="font-medium">{a.approver}</span>
+              <li
+                key={a.approver}
+                className="flex items-baseline gap-2 text-[13px]"
+              >
+                <span className="font-medium">
+                  {a.display_name ?? a.approver}
+                </span>
+                {a.auth_method !== undefined && (
+                  <Badge tone="neutral">{a.auth_method}</Badge>
+                )}
                 <span className="text-ink-dim">{a.comment}</span>
                 <span className="ml-auto">
                   <TimeAgo value={a.ts} />
@@ -165,7 +184,8 @@ function DrawerBody({
       {row.status === "pending" && (
         <ActionForm
           row={row}
-          approver={approver}
+          canAct={canAct}
+          approverName={approverName}
           intent={intent}
           onClose={onClose}
         />
@@ -177,14 +197,21 @@ function DrawerBody({
 function MatchedRules({ ruleIds }: { ruleIds: string[] }) {
   const policy = usePolicy();
   if (ruleIds.length === 0) {
-    return <p className="text-xs text-ink-faint">no rules matched (policy default)</p>;
+    return (
+      <p className="text-xs text-ink-faint">
+        no rules matched (policy default)
+      </p>
+    );
   }
   return (
     <ul className="space-y-1.5">
       {ruleIds.map((id) => {
         const rule = policy.data?.rules.find((r) => r.id === id);
         return (
-          <li key={id} className="rounded border border-edge bg-panel-2 px-3 py-2">
+          <li
+            key={id}
+            className="rounded border border-edge bg-panel-2 px-3 py-2"
+          >
             <div className="flex items-center gap-2">
               <span className="mono text-[12px] text-ink">{id}</span>
               {rule !== undefined && <StatusBadge value={rule.effect} />}
@@ -226,12 +253,14 @@ function PartyLine({ label, address }: { label: string; address: string }) {
 
 function ActionForm({
   row,
-  approver,
+  canAct,
+  approverName,
   intent,
   onClose,
 }: {
   row: ProposalRow;
-  approver: string;
+  canAct: boolean;
+  approverName: string | null;
   intent: "approve" | "reject" | null;
   onClose: () => void;
 }) {
@@ -240,13 +269,13 @@ function ActionForm({
   const [comment, setComment] = useState("");
 
   const busy = approve.isPending || reject.isPending;
-  const disabled = busy || approver.trim() === "" || comment.trim() === "";
+  const disabled = busy || !canAct || comment.trim() === "";
   const error = approve.error ?? reject.error;
 
   const act = (action: "approve" | "reject") => {
     const mutation = action === "approve" ? approve : reject;
     mutation.mutate(
-      { decisionId: row.decision_id, approver: approver.trim(), comment: comment.trim() },
+      { decisionId: row.decision_id, comment: comment.trim() },
       {
         onSuccess: (data) => {
           // dual control: the first approval leaves it pending for a second
@@ -259,9 +288,13 @@ function ActionForm({
   return (
     <div className="mt-auto border-t border-edge px-5 py-4">
       {error !== null && <ErrorState message={error.message} />}
-      {approver.trim() === "" && (
+      {!canAct ? (
         <p className="mb-2 text-xs text-warn">
-          set your name in &ldquo;acting as&rdquo; above to act on proposals
+          paste your approver token above to act on proposals
+        </p>
+      ) : (
+        <p className="mb-2 text-xs text-ink-faint">
+          acting as <span className="text-ink">{approverName}</span>
         </p>
       )}
       <label className="block text-xs text-ink-dim" htmlFor="decision-comment">
@@ -274,7 +307,12 @@ function ActionForm({
         rows={2}
         autoFocus={intent !== null}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey && intent !== null && !disabled) {
+          if (
+            e.key === "Enter" &&
+            !e.shiftKey &&
+            intent !== null &&
+            !disabled
+          ) {
             e.preventDefault();
             act(intent);
           }
@@ -318,7 +356,13 @@ function ActionForm({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="border-b border-edge px-5 py-4">
       <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-ink-faint">
@@ -329,7 +373,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <>
       <dt className="text-ink-faint">{label}</dt>

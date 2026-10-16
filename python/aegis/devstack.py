@@ -26,6 +26,8 @@ from web3 import Web3
 from aegis import chains
 from aegis.agent import ChainClient
 from aegis.approval.config import DEV_KEYS_OPT_IN, guardian_key_from_env
+from aegis.approval.identity import hash_token, new_token
+from aegis.approval.store import ProposalStore
 from aegis.demo import deploy
 from aegis.devkeys import KEYS, address_of
 from aegis.errors import ConfigError
@@ -66,6 +68,35 @@ def _reusable(state: dict[str, Any], chain: ChainClient, chain_id: int) -> bool:
     except Exception:  # noqa: BLE001 - RPC hiccup: redeploy rather than trust it
         return False
     return True
+
+
+DEV_APPROVER_ID = "dev"
+DEV_APPROVER_TOKEN_FILE = "dev-approver.token"  # git ignored; local dev chains only
+
+
+def ensure_dev_approver(state_dir: Path) -> None:
+    """On a local dev chain, make sure one approver exists and its token is on disk.
+
+    The token file is what the console (and Playwright) read to sign in. It is
+    written once, mode 0600, and never printed again; a hosted deployment gets
+    its approvers from ``aegis approver add`` instead.
+    """
+    store = ProposalStore(str(state_dir / "approvals.db"))
+    token_path = state_dir / DEV_APPROVER_TOKEN_FILE
+    if store.get_approver(DEV_APPROVER_ID) is not None:
+        if token_path.exists():
+            print(f"dev approver '{DEV_APPROVER_ID}' present; token in {token_path}")
+        else:
+            print(
+                f"dev approver '{DEV_APPROVER_ID}' exists but {token_path} is gone; "
+                "add another with `aegis approver add <id>`"
+            )
+        return
+    token = new_token()
+    store.add_approver(DEV_APPROVER_ID, "Dev approver", hash_token(token))
+    token_path.touch(mode=0o600)
+    token_path.write_text(token + "\n")
+    print(f"dev approver '{DEV_APPROVER_ID}' created; token written to {token_path}")
 
 
 def resolve_operator_key(explicit: str | None, environ: dict[str, str] | None = None) -> str:
@@ -123,6 +154,8 @@ def run(
                 )
             print(f"reusing {meta.name} deployment: anchor {existing['anchor_address']}")
             print(f"dev stack state -> {existing_path} (audit log preserved)")
+            if not meta.public:
+                ensure_dev_approver(state_dir)
             return 0
 
     # a fresh deployment is a fresh world: old proposals, audit records and
@@ -153,6 +186,11 @@ def run(
     print(f"dev stack state -> {existing_path}")
     if meta.explorer_url:
         print(f"  anchor contract {meta.explorer_url}/address/{state['anchor_address']}")
+    if not meta.public:
+        (state_dir / DEV_APPROVER_TOKEN_FILE).unlink(missing_ok=True)  # fresh world, fresh token
+        ensure_dev_approver(state_dir)
+    else:
+        print("public chain: create approvers with `aegis approver add <id>` on this machine")
     return 0
 
 

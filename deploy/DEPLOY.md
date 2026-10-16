@@ -34,7 +34,17 @@ fly secrets set AEGIS_GUARDIAN_KEY=0x<the key above>
 ```
 
 Anvil's public development keys are refused unless `AEGIS_ALLOW_DEV_KEYS=true`;
-never set that on a hosted machine. At startup the API reads the token's
+never set that on a hosted machine.
+
+Approvers (the humans who may approve or reject) are created on the machine,
+and each gets a token printed once:
+
+```bash
+fly ssh console -C "aegis --state-dir /data/aegis approver add ops-casey --name Casey"
+```
+
+Nobody can approve without a token, including the agent, the console on its
+own, or anyone who merely reaches the API. At startup the API reads the token's
 `guardian()` and refuses to start if it differs from the configured key; check
 `/metrics` for `chain.guardian_verified: true` after deploy.
 

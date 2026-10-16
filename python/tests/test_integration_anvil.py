@@ -15,7 +15,15 @@ from aegis.agent import AegisRuntime, MockLLM, build_graph
 from aegis.approval import ApprovalConfig, create_app
 from aegis.audit import AuditLog, AuditSigner
 from aegis.policy import load_policy
-from tests.conftest import ACCOUNTS, FROZEN_ACCOUNT, KEYS, OPERATOR, REPO_ROOT
+from tests.conftest import (
+    ACCOUNTS,
+    FROZEN_ACCOUNT,
+    KEYS,
+    OPERATOR,
+    REPO_ROOT,
+    bearer,
+    register_approver,
+)
 
 POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
 
@@ -32,7 +40,9 @@ def stack(deployment, tmp_path: Path):
         guardian_key=KEYS[9],
         chain_id=31337,
     )
-    approval_client = TestClient(create_app(config))
+    approval_app = create_app(config)
+    approval_client = TestClient(approval_app)
+    ops1 = bearer(register_approver(approval_app, "ops-1"))
     audit_signer = AuditSigner.load_or_create(tmp_path / "audit.key")
     audit = AuditLog(tmp_path / "audit.jsonl", audit_signer)
     runtime = AegisRuntime(
@@ -46,6 +56,7 @@ def stack(deployment, tmp_path: Path):
     return {
         "runtime": runtime,
         "approval": approval_client,
+        "ops1": ops1,  # W2: the human's credential; the runtime never holds it
         "audit": audit,
         "audit_public": audit_signer.public_key_hex(),
         "token": token,
@@ -90,9 +101,18 @@ def test_end_to_end_batch(stack) -> None:
     assert len(executed) == 4
     assert token.functions.balanceOf(ACCOUNTS[2]).call() == balances_before[2] + 2_000
 
+    # the runtime (the agent's side) cannot resolve its own escalation: its
+    # approval client carries no approver credential, so approve is 401 and
+    # nothing is recorded (W2, AGENTS.md C6)
+    self_approve = stack["runtime"].approval.post(
+        f"/proposals/{decision_id}/approve", json={"comment": "agent says yes"}
+    )
+    assert self_approve.status_code == 401
+    assert stack["approval"].get(f"/proposals/{decision_id}").json()["approvals"] == []
+
     # human approves via the API
     res = stack["approval"].post(
-        f"/proposals/{decision_id}/approve", json={"approver": "ops-1", "comment": "reviewed"}
+        f"/proposals/{decision_id}/approve", json={"comment": "reviewed"}, headers=stack["ops1"]
     )
     assert res.json()["status"] == "approved"
 
@@ -136,7 +156,7 @@ def test_rejected_escalation_never_executes(stack) -> None:
 
     state = graph.invoke({"instructions": ["a", "b"], "results": []}, config)
     decision_id = state["results"][0]["decision_id"]
-    stack["approval"].post(f"/proposals/{decision_id}/reject", json={"approver": "ops-1"})
+    stack["approval"].post(f"/proposals/{decision_id}/reject", json={}, headers=stack["ops1"])
 
     state = graph.invoke(Command(resume="rejected"), config)
     outcome = state["results"][-1]

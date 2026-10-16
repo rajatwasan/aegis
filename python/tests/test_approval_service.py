@@ -1,4 +1,9 @@
-"""M4 tests: approval service API — idempotency, TTL expiry, dual control."""
+"""M4 tests: approval service API — idempotency, TTL expiry, dual control.
+
+W2 (spec docs/specs/2026-10-hardening.md): approve and reject require an
+approver token; the identity on approvals and audit records comes from the
+token, never from the body.
+"""
 
 from pathlib import Path
 
@@ -7,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from aegis.approval import ApprovalConfig, create_app
 from aegis.audit import AuditLog, AuditSigner
-from tests.conftest import KEYS
+from tests.conftest import KEYS, bearer, register_approver
 
 TOKEN = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 ALICE = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
@@ -30,8 +35,24 @@ def make_config(tmp_path: Path, **overrides) -> ApprovalConfig:
 
 
 @pytest.fixture()
-def client(tmp_path: Path) -> TestClient:
-    return TestClient(create_app(make_config(tmp_path)))
+def app(tmp_path: Path):
+    return create_app(make_config(tmp_path))
+
+
+@pytest.fixture()
+def client(app) -> TestClient:
+    return TestClient(app)
+
+
+@pytest.fixture()
+def ops1(app) -> dict[str, str]:
+    """Bearer headers for approver ops-1 (W2: identity comes from the token)."""
+    return bearer(register_approver(app, "ops-1", "Ops One"))
+
+
+@pytest.fixture()
+def ops2(app) -> dict[str, str]:
+    return bearer(register_approver(app, "ops-2", "Ops Two"))
 
 
 def proposal_body(**overrides) -> dict:
@@ -46,6 +67,11 @@ def proposal_body(**overrides) -> dict:
     }
     base.update(overrides)
     return base
+
+
+def audit_log(tmp_path: Path) -> tuple[AuditLog, AuditSigner]:
+    signer = AuditSigner.load_or_create(tmp_path / "audit.key")
+    return AuditLog(tmp_path / "audit.jsonl", signer), signer
 
 
 class TestSubmission:
@@ -80,11 +106,12 @@ class TestSubmission:
 
 
 class TestApproval:
-    def test_approve_signs_authorization(self, client: TestClient, tmp_path: Path) -> None:
+    def test_approve_signs_authorization(
+        self, client: TestClient, tmp_path: Path, ops1: dict
+    ) -> None:
         decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
         res = client.post(
-            f"/proposals/{decision_id}/approve",
-            json={"approver": "ops-1", "comment": "looks fine"},
+            f"/proposals/{decision_id}/approve", json={"comment": "looks fine"}, headers=ops1
         )
         assert res.status_code == 200
         body = res.json()
@@ -95,35 +122,128 @@ class TestApproval:
         assert auth["deadline"] > 0
 
         # resolution landed in the audit log, chained and signed
-        signer = AuditSigner.load_or_create(tmp_path / "audit.key")
-        log = AuditLog(tmp_path / "audit.jsonl", signer)
+        log, signer = audit_log(tmp_path)
         assert log.verify(signer.public_key_hex()) == 1
         record = log.records()[0]
         assert record["decision_id"] == decision_id
         assert record["human_action"]["action"] == "approved"
 
-    def test_reject(self, client: TestClient) -> None:
+    def test_reject(self, client: TestClient, ops1: dict) -> None:
         decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        res = client.post(
-            f"/proposals/{decision_id}/reject", json={"approver": "ops-1", "comment": "no"}
-        )
+        res = client.post(f"/proposals/{decision_id}/reject", json={"comment": "no"}, headers=ops1)
         assert res.status_code == 200
         assert res.json()["status"] == "rejected"
         assert res.json()["signature"] is None
 
-    def test_approve_after_reject_conflicts(self, client: TestClient) -> None:
+    def test_approve_after_reject_conflicts(
+        self, client: TestClient, ops1: dict, ops2: dict
+    ) -> None:
         decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        client.post(f"/proposals/{decision_id}/reject", json={"approver": "ops-1"})
-        res = client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-2"})
+        client.post(f"/proposals/{decision_id}/reject", json={}, headers=ops1)
+        res = client.post(f"/proposals/{decision_id}/approve", json={}, headers=ops2)
         assert res.status_code == 409
 
-    def test_nonces_increment(self, client: TestClient) -> None:
+    def test_nonces_increment(self, client: TestClient, ops1: dict) -> None:
         ids = [client.post("/proposals", json=proposal_body()).json()["decision_id"] for _ in "ab"]
         nonces = []
         for decision_id in ids:
-            client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
+            client.post(f"/proposals/{decision_id}/approve", json={}, headers=ops1)
             nonces.append(client.get(f"/proposals/{decision_id}").json()["authorization"]["nonce"])
         assert nonces[0] != nonces[1]
+
+
+class TestApproverIdentity:
+    """W2: who approved is established by the credential, and nothing moves without one."""
+
+    def _pending(self, client: TestClient) -> str:
+        return client.post("/proposals", json=proposal_body()).json()["decision_id"]
+
+    def _assert_nothing_happened(self, client: TestClient, decision_id: str, tmp_path: Path):
+        row = client.get(f"/proposals/{decision_id}").json()
+        assert row["status"] == "pending"
+        assert row["approvals"] == []
+        assert row["signature"] is None
+        log, _ = audit_log(tmp_path)
+        assert log.records() == []
+
+    def test_approve_without_token_401(self, client: TestClient, tmp_path: Path) -> None:
+        decision_id = self._pending(client)
+        res = client.post(f"/proposals/{decision_id}/approve", json={"comment": "x"})
+        assert res.status_code == 401
+        assert res.headers["www-authenticate"].startswith("Bearer")
+        self._assert_nothing_happened(client, decision_id, tmp_path)
+
+    def test_approve_with_unknown_token_401(self, client: TestClient, tmp_path: Path) -> None:
+        decision_id = self._pending(client)
+        res = client.post(
+            f"/proposals/{decision_id}/approve", json={}, headers=bearer("not-a-real-token")
+        )
+        assert res.status_code == 401
+        self._assert_nothing_happened(client, decision_id, tmp_path)
+
+    def test_approve_with_revoked_token_401(self, app, client: TestClient, tmp_path: Path) -> None:
+        token = register_approver(app, "ops-gone")
+        app.state.store.revoke_approver("ops-gone")
+        decision_id = self._pending(client)
+        res = client.post(f"/proposals/{decision_id}/approve", json={}, headers=bearer(token))
+        assert res.status_code == 401
+        self._assert_nothing_happened(client, decision_id, tmp_path)
+
+    def test_malformed_authorization_header_401(self, client: TestClient, tmp_path: Path) -> None:
+        decision_id = self._pending(client)
+        for value in ("Basic abc", "Bearer", "Bearer    ", "token abc"):
+            res = client.post(
+                f"/proposals/{decision_id}/approve", json={}, headers={"Authorization": value}
+            )
+            assert res.status_code == 401, value
+        self._assert_nothing_happened(client, decision_id, tmp_path)
+
+    def test_reject_requires_token(self, client: TestClient, tmp_path: Path) -> None:
+        decision_id = self._pending(client)
+        assert client.post(f"/proposals/{decision_id}/reject", json={}).status_code == 401
+        self._assert_nothing_happened(client, decision_id, tmp_path)
+
+    def test_approve_identity_comes_from_token(
+        self, client: TestClient, tmp_path: Path, ops1: dict
+    ) -> None:
+        decision_id = self._pending(client)
+        res = client.post(f"/proposals/{decision_id}/approve", json={"comment": "ok"}, headers=ops1)
+        assert res.status_code == 200
+        approval = res.json()["approvals"][0]
+        assert approval["approver"] == "ops-1"
+        assert approval["display_name"] == "Ops One"
+        assert approval["auth_method"] == "token"
+        assert res.json()["resolution"]["approvers"] == ["ops-1"]
+        log, _ = audit_log(tmp_path)
+        human = log.records()[0]["human_action"]
+        assert human["approvers"] == ["ops-1"]
+        assert human["auth_methods"] == ["token"]
+
+    def test_body_approver_field_is_rejected(
+        self, client: TestClient, tmp_path: Path, ops1: dict
+    ) -> None:
+        """The pre W2 body shape is refused loudly, not silently ignored (C4)."""
+        decision_id = self._pending(client)
+        res = client.post(
+            f"/proposals/{decision_id}/approve",
+            json={"approver": "someone-else", "comment": "ok"},
+            headers=ops1,
+        )
+        assert res.status_code == 422
+        assert "approver" in res.text
+        self._assert_nothing_happened(client, decision_id, tmp_path)
+
+    def test_whoami(self, client: TestClient, ops1: dict) -> None:
+        assert client.get("/approvers/me").status_code == 401
+        me = client.get("/approvers/me", headers=ops1).json()
+        assert me == {"id": "ops-1", "display_name": "Ops One", "auth_method": "token"}
+
+    def test_store_holds_hashes_not_tokens(self, app) -> None:
+        token = register_approver(app, "ops-hash")
+        row = app.state.store.get_approver("ops-hash")
+        assert row["token_hash"] != token
+        assert len(row["token_hash"]) == 64
+        assert all("token_hash" not in r for r in app.state.store.list_approvers())
 
 
 class TestExpiry:
@@ -134,17 +254,18 @@ class TestExpiry:
         assert res.json()["status"] == "expired"
 
     def test_expired_proposal_cannot_be_approved(self, tmp_path: Path) -> None:
-        client = TestClient(create_app(make_config(tmp_path, ttl_seconds=0.0)))
+        app = create_app(make_config(tmp_path, ttl_seconds=0.0))
+        client = TestClient(app)
+        headers = bearer(register_approver(app, "ops-1"))
         decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        res = client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
+        res = client.post(f"/proposals/{decision_id}/approve", json={}, headers=headers)
         assert res.status_code == 409
 
     def test_expiry_writes_audit_record(self, tmp_path: Path) -> None:
         client = TestClient(create_app(make_config(tmp_path, ttl_seconds=0.0)))
         client.post("/proposals", json=proposal_body())
         client.get("/proposals")  # triggers sweep
-        signer = AuditSigner.load_or_create(tmp_path / "audit.key")
-        log = AuditLog(tmp_path / "audit.jsonl", signer)
+        log, _ = audit_log(tmp_path)
         records = log.records()
         assert len(records) == 1
         assert records[0]["human_action"]["action"] == "expired"
@@ -152,25 +273,52 @@ class TestExpiry:
 
 class TestDualControl:
     @pytest.fixture()
-    def dual_client(self, tmp_path: Path) -> TestClient:
-        return TestClient(create_app(make_config(tmp_path, dual_control=True)))
+    def dual_app(self, tmp_path: Path):
+        return create_app(make_config(tmp_path, dual_control=True))
 
-    def test_first_approval_keeps_pending(self, dual_client: TestClient) -> None:
+    @pytest.fixture()
+    def dual_client(self, dual_app) -> TestClient:
+        return TestClient(dual_app)
+
+    @pytest.fixture()
+    def ops1(self, dual_app) -> dict[str, str]:
+        return bearer(register_approver(dual_app, "ops-1", "Ops One"))
+
+    @pytest.fixture()
+    def ops2(self, dual_app) -> dict[str, str]:
+        return bearer(register_approver(dual_app, "ops-2", "Ops Two"))
+
+    def test_first_approval_keeps_pending(self, dual_client: TestClient, ops1: dict) -> None:
         decision_id = dual_client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        res = dual_client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
+        res = dual_client.post(f"/proposals/{decision_id}/approve", json={}, headers=ops1)
         assert res.json()["status"] == "pending"
         assert res.json()["signature"] is None
 
-    def test_same_approver_twice_rejected(self, dual_client: TestClient) -> None:
+    def test_same_approver_twice_rejected(self, dual_client: TestClient, ops1: dict) -> None:
         decision_id = dual_client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        dual_client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
-        res = dual_client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
+        dual_client.post(f"/proposals/{decision_id}/approve", json={}, headers=ops1)
+        res = dual_client.post(f"/proposals/{decision_id}/approve", json={}, headers=ops1)
         assert res.status_code == 409
 
-    def test_two_distinct_approvers_sign(self, dual_client: TestClient) -> None:
+    def test_dual_control_requires_two_distinct_identities(
+        self, dual_app, dual_client: TestClient, ops1: dict
+    ) -> None:
+        """A second token for the SAME approver id must not count as a second human."""
         decision_id = dual_client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        dual_client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
-        res = dual_client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-2"})
+        dual_client.post(f"/proposals/{decision_id}/approve", json={}, headers=ops1)
+        # no second token can exist for ops-1 (id is the primary key), and a
+        # display name collision is not an identity: register ops-3 named "Ops One"
+        same_name = bearer(register_approver(dual_app, "ops-3", "Ops One"))
+        res = dual_client.post(f"/proposals/{decision_id}/approve", json={}, headers=same_name)
+        assert res.json()["status"] == "approved"
+        assert res.json()["resolution"]["approvers"] == ["ops-1", "ops-3"]
+
+    def test_two_distinct_approvers_sign(
+        self, dual_client: TestClient, ops1: dict, ops2: dict
+    ) -> None:
+        decision_id = dual_client.post("/proposals", json=proposal_body()).json()["decision_id"]
+        dual_client.post(f"/proposals/{decision_id}/approve", json={}, headers=ops1)
+        res = dual_client.post(f"/proposals/{decision_id}/approve", json={}, headers=ops2)
         assert res.json()["status"] == "approved"
         assert res.json()["signature"] is not None
         assert res.json()["resolution"]["approvers"] == ["ops-1", "ops-2"]

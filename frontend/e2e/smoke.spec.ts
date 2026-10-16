@@ -1,7 +1,24 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 
 const API_URL = "http://127.0.0.1:8000";
 const SHOT = { dir: "../docs/screenshots" };
+
+/**
+ * The dev stack (scripts/dev-stack.sh -> aegis.devstack) registers approver
+ * "dev" and writes its token next to state.json. The human in this test is
+ * that approver: the token goes into the browser, never into the agent (W2).
+ * Read inside the test, after Playwright has started the stack.
+ */
+function devApproverToken(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return readFileSync(
+    resolve(here, "../../.aegis/dev/dev-approver.token"),
+    "utf8",
+  ).trim();
+}
 
 /**
  * The whole story on the real stack: a canned instruction runs the agent,
@@ -12,9 +29,15 @@ test("canned instruction -> escalation -> approval -> executed -> PROOF OK", asy
   page,
   request,
 }) => {
-  // --- console: identity + canned instruction
+  // --- sign in as the dev approver before the app loads, then confirm the
+  // server resolved the token to a named approver
+  await page.addInitScript((token) => {
+    window.localStorage.setItem("aegis.approver_token", token);
+  }, devApproverToken());
   await page.goto("/console");
-  await page.getByPlaceholder("your name").fill("playwright");
+  await expect(page.getByTestId("approver-status")).toContainText(
+    "Dev approver",
+  );
   await page
     .getByRole("button", { name: "Send 50,000 AGD to the treasury desk" })
     .click();
@@ -37,7 +60,9 @@ test("canned instruction -> escalation -> approval -> executed -> PROOF OK", asy
   const row = page.getByTestId(`proposal-${decisionId}`);
   await expect(row).toBeVisible();
   await row.click();
-  await expect(page.getByRole("dialog")).toContainText("escalate-large-transfer");
+  await expect(page.getByRole("dialog")).toContainText(
+    "escalate-large-transfer",
+  );
   await expect(page.getByRole("dialog")).toContainText("compliant");
   await page.screenshot({ path: `${SHOT.dir}/approvals.png` });
   await page.keyboard.press("Escape");

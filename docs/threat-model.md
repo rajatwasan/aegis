@@ -53,8 +53,8 @@ human approval and a guardian signature.** Aegis is designed so that claim holds
 | 3 | **T**ampering | Mutate an audit record | Hash chain + Ed25519 signature + Merkle root anchored on-chain; `aegis verify` fails on any edit | Pre-anchor records rely on the signing key; anchor promptly |
 | 4 | **T**ampering | Swap the policy after approval | `policyHash` bound into the signed `Authorization`; mismatch is detectable | Admin can ship a bad policy (#11) |
 | 5 | **T**ampering | Smuggle extra tool fields (`bypass_policy`, fake `signature`) | Pydantic schemas ignore unknown fields; the chain ignores anything not in the struct | None |
-| 6 | **R**epudiation | Deny who approved what | Approver id + comment recorded; audit signed and anchored | Depends on approver auth in a real deployment |
-| 7 | **I**nfo disclosure | Coax the agent to leak the guardian key | The runtime/agent never holds the key; it lives only in the approval service | Key custody hardening is deployment-specific |
+| 6 | **R**epudiation | Deny who approved what, or approve as someone else | Approve and reject require an approver token the service issued and stores only as a hash; the identity on the approval and in the signed audit record is resolved from that token, never from the request body (W2) | Credential theft: a stolen token acts as that approver until revoked (`aegis approver revoke`); passkey presence (W10) raises the bar |
+| 7 | **I**nfo disclosure | Coax the agent to leak the guardian key or an approver token | The runtime/agent never holds the key or any approver token; the key lives only in the approval service (no default, dev keys refused, binding to the on chain guardian checked at startup, W1) and tokens live only in approvers' browsers | Key custody hardening is deployment-specific |
 | 8 | **I**nfo disclosure / **E**oP | Approval-service or guardian-key compromise | Key isolated from the agent; rotation via admin; dual-control mode needs two approvers | **Full compromise defeats the gate — out of scope to prevent, only to contain** |
 | 9 | **D**enial of service | Flood escalations to exhaust approvers | TTL auto-reject (default 15 min); nothing executes on timeout | Availability of approvals is not guaranteed (fails safe/closed) |
 | 10 | **D**oS | Spam the chain / gas grief | Local anvil; per-tx gas caps | Real-network economics out of scope |
@@ -84,6 +84,10 @@ a human it cannot impersonate.
   signing HSM in production.
 - **Trusted admin** can rotate the guardian or grant roles maliciously; use a
   multisig/timelock. Rotations emit events for monitoring.
+- **Approver credential theft** acts as that approver until the token is
+  revoked. Tokens are random, stored hashed, compared in constant time, and
+  revocable; the next step is passkey presence per decision (W10) and, after
+  that, approver signed approvals.
 - **Human approver error / social engineering** is the deliberate last line of
   control; Aegis surfaces the raw proposal and policy verdict but cannot make the
   decision for the human.

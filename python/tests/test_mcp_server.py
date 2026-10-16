@@ -102,6 +102,8 @@ def test_mcp_stdio_smoke(deployment, tmp_path: Path) -> None:
     params = _server_params(deployment, tmp_path)
     out = anyio.run(_drive, params, deployment["token"].address)
 
+    # exactly four tools, none of which resolves a decision: an MCP client can
+    # propose and read, never approve (AGENTS.md C6, spec AC2.6)
     assert out["tool_names"] == {
         "propose_transfer",
         "get_proposal_status",
