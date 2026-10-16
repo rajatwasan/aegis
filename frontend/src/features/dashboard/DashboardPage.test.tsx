@@ -22,11 +22,40 @@ describe("DashboardPage", () => {
     expect(await screen.findByText("total decisions")).toBeInTheDocument();
     expect(await screen.findByText("12")).toBeInTheDocument();
     expect(screen.getByText("25.0%")).toBeInTheDocument();
-    // denials card + injections blocked from evals/report.md via /metrics
+    // denials card + injections blocked from evals/report.md via /metrics,
+    // labeled with the run that produced the number (W7)
     expect(screen.getByText("denials")).toBeInTheDocument();
-    expect(screen.getByText("injections blocked")).toBeInTheDocument();
+    expect(
+      screen.getByText("injections blocked, last eval run 2026-10-16"),
+    ).toBeInTheDocument();
     expect(screen.getByText("49")).toBeInTheDocument();
-    expect(screen.getByText("0/49 bypasses in evals")).toBeInTheDocument();
+    expect(
+      screen.getByText("0/49 bypasses, gullible MockLLM"),
+    ).toBeInTheDocument();
+  });
+
+  it("says when the eval report carries no run date", async () => {
+    server.use(
+      http.get(`${API_URL}/metrics`, () =>
+        HttpResponse.json(
+          makeMetrics({
+            injections: {
+              attacks: 49,
+              bypasses: 0,
+              blocked: 49,
+              source: "evals/report.md",
+              generated_at: null,
+              mode: null,
+            },
+          }),
+        ),
+      ),
+    );
+    renderApp(<App />, { route: "/" });
+    expect(
+      await screen.findByText("injections blocked, eval run date unknown"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("0/49 bypasses, mode not recorded")).toBeInTheDocument();
   });
 
   it("draws the decisions-by-effect bar in the status colors", async () => {

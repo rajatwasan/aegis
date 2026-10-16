@@ -636,6 +636,7 @@
         "type": "object"
       },
       "InjectionStats": {
+        "description": "The eval headline with its provenance: a number without a date and a\nmode is a number nobody can check (W7, decision D6).",
         "properties": {
           "attacks": {
             "title": "Attacks",
@@ -648,12 +649,39 @@
           "bypasses": {
             "title": "Bypasses",
             "type": "integer"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
           }
         },
         "required": [
           "attacks",
           "bypasses",
-          "blocked"
+          "blocked",
+          "source"
         ],
         "title": "InjectionStats",
         "type": "object"

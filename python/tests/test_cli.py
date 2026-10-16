@@ -135,7 +135,7 @@ def test_cli_approver_revoke_disables_the_token(tmp_path: Path, capsys) -> None:
             db_path=str(tmp_path / "approvals.db"),
             audit_log_path=str(tmp_path / "audit.jsonl"),
             audit_key_file=str(tmp_path / "audit.key"),
-            policy_path=str(Path(__file__).resolve().parents[2] / "policies" / "default.yaml"),
+            policy_path=str(Path(__file__).resolve().parents[2] / "policies" / "dev.yaml"),
             guardian_key=KEYS[9],
         )
     )

@@ -142,7 +142,9 @@ PROOF OK / PROOF FAIL verdict.
 ![Audit record verified against the on-chain anchor](docs/screenshots/audit-verify.png)
 
 **Dashboard** — decisions by effect, escalation rate, pending count, last
-anchor, and the eval suite's blocked-injection count.
+anchor, and the eval suite's blocked-injection count labeled with the date of
+the run that produced it and the mode the model ran in (read from the header
+of `evals/report.md`, never typed in).
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
@@ -217,7 +219,7 @@ Run it with `make evals`; the full breakdown is in
 - `python/tests/` — unit + anvil integration tests (MockLLM only; no key needed)
 - `frontend/` — the Guardian Console (Vite + React + TS strict) with Vitest + Playwright tests
 - `evals/` — prompt-injection corpus, harness, and report
-- `policies/` — YAML policy files (`default.yaml`)
+- `policies/` — YAML policy files; `dev.yaml` is the local anvil policy the dev stack names via `AEGIS_POLICY_PATH` (no file is picked up implicitly)
 - `scripts/demo.sh` — headless end-to-end demo; `scripts/dev-stack.sh` — the `make dev` stack
 - `docs/` — architecture, threat model, ADRs, console screenshots
 

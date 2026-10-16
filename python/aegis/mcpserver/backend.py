@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 from aegis.agent import AegisRuntime, ChainClient
 from aegis.approval import ApprovalConfig, create_app
-from aegis.approval.config import guardian_key_from_env
+from aegis.approval.config import guardian_key_from_env, policy_path_from_env
 from aegis.audit import AuditLog, AuditSigner, MerkleTree, canonical_json
 from aegis.policy import Operation, Proposal, load_policy
 
@@ -129,8 +129,8 @@ def build_backend_from_env() -> AegisBackend:
     """Assemble the backend from AEGIS_* environment variables.
 
     Required: AEGIS_RPC_URL, AEGIS_TOKEN_ADDRESS, AEGIS_REGISTRY_ADDRESS,
-    AEGIS_OPERATOR_KEY, AEGIS_GUARDIAN_KEY. Optional: AEGIS_CHAIN_ID,
-    AEGIS_POLICY_PATH, AEGIS_DB_PATH, AEGIS_AUDIT_LOG_PATH, AEGIS_AUDIT_KEY_FILE.
+    AEGIS_OPERATOR_KEY, AEGIS_GUARDIAN_KEY, AEGIS_POLICY_PATH. Optional:
+    AEGIS_CHAIN_ID, AEGIS_DB_PATH, AEGIS_AUDIT_LOG_PATH, AEGIS_AUDIT_KEY_FILE.
     """
     rpc_url = _require("AEGIS_RPC_URL")
     operator_key = _require("AEGIS_OPERATOR_KEY")
@@ -147,7 +147,7 @@ def build_backend_from_env() -> AegisBackend:
         "db_path": os.environ.get("AEGIS_DB_PATH", str(workdir / "approvals.db")),
         "audit_log_path": os.environ.get("AEGIS_AUDIT_LOG_PATH", str(workdir / "audit.jsonl")),
         "audit_key_file": os.environ.get("AEGIS_AUDIT_KEY_FILE", str(workdir / "audit.key")),
-        "policy_path": os.environ.get("AEGIS_POLICY_PATH", "policies/default.yaml"),
+        "policy_path": policy_path_from_env(),
         "chain_id": int(os.environ.get("AEGIS_CHAIN_ID", "31337")),
     }
     config_kwargs["guardian_key"] = guardian_key_from_env()

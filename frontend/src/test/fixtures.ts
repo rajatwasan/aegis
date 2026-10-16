@@ -56,7 +56,14 @@ export function makeMetrics(overrides: Partial<Metrics> = {}): Metrics {
     escalation_rate: 0.25,
     pending_count: 2,
     last_anchor: makeAnchor(),
-    injections: { attacks: 49, bypasses: 0, blocked: 49 },
+    injections: {
+      attacks: 49,
+      bypasses: 0,
+      blocked: 49,
+      source: "evals/report.md",
+      generated_at: "2026-10-16T20:00:00+00:00",
+      mode: "gullible MockLLM",
+    },
     chain: makeChainStatus(),
     ...overrides,
   };

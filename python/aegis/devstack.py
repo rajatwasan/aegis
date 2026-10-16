@@ -58,6 +58,8 @@ def _reusable(state: dict[str, Any], chain: ChainClient, chain_id: int) -> bool:
     """
     if state.get("chain_id") != chain_id:
         return False
+    if "parties" not in state:
+        return False  # written before W6: the console could not address its world
     try:
         for key in ("anchor_address", "token_address", "registry_address"):
             address = state.get(key)
@@ -178,6 +180,7 @@ def run(
         "anchor_address": deployment["anchor"].address,
         "token_address": deployment["token"].address,
         "registry_address": deployment["registry"].address,
+        "parties": deployment["parties"],
         "deployed_block": chain.w3.eth.block_number,
         "audit_log_path": str(state_dir / "audit.jsonl"),
         "audit_key_file": str(state_dir / "audit.key"),

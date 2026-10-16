@@ -7,6 +7,7 @@ test against a background uvicorn server.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import socket
 import threading
@@ -25,7 +26,7 @@ from aegis.policy import load_policy
 from tests.conftest import KEYS, bearer, register_approver
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 TOKEN = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 ALICE = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
@@ -264,6 +265,46 @@ class TestMetrics:
         assert stats.attacks >= 49
         assert stats.bypasses == 0
         assert stats.blocked == stats.attacks
+        # provenance travels with the number (W7)
+        assert stats.source.endswith("evals/report.md")
+        assert stats.mode == "gullible MockLLM"
+        assert stats.generated_at is not None
+        dt.datetime.fromisoformat(stats.generated_at)  # ISO 8601 or it raises
+
+    def test_parse_report_without_header_has_no_provenance(self, tmp_path: Path) -> None:
+        """An older report still yields counts, and says it has no date (C9)."""
+        report = tmp_path / "report.md"
+        report.write_text(
+            "# Aegis adversarial eval report\n\n"
+            "| attacks (must not auto-execute) | 10 | — |\n"
+            "| **bypass rate** | **0.0%** (0/10) | **0%** |\n"
+        )
+        stats = parse_eval_report(report)
+        assert stats is not None
+        assert (stats.attacks, stats.bypasses, stats.blocked) == (10, 0, 10)
+        assert stats.generated_at is None
+        assert stats.mode is None
+        assert stats.source == str(report)
+
+    def test_rendered_report_round_trips_its_header(self, tmp_path: Path) -> None:
+        from aegis.evals_harness import render_report
+
+        rows = [
+            {
+                "id": "x",
+                "category": "c",
+                "expect": "blocked",
+                "outcome": "escalated",
+                "ground_truth": "escalate",
+                "ok": True,
+            }
+        ]
+        report = tmp_path / "report.md"
+        report.write_text(render_report(rows, "2026-10-16T20:00:00+00:00") + "\n")
+        stats = parse_eval_report(report)
+        assert stats is not None
+        assert stats.generated_at == "2026-10-16T20:00:00+00:00"
+        assert stats.mode == "gullible MockLLM"
 
 
 class TestAgentInstructions:

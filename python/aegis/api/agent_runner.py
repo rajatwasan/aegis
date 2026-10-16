@@ -26,19 +26,25 @@ from aegis.agent import AegisRuntime, ChainClient, LLMProvider, MockLLM, build_g
 from aegis.agent.llm import MOCK_MODE, llm_mode, provider_from_env
 from aegis.anchoring import StateError
 from aegis.api.config import ApiConfig, load_chain_state
+from aegis.errors import ConfigError
 from aegis.events import EventBus
 
 #: how many model turns a free text run may take before it is stopped (anthropic mode)
 DEFAULT_MAX_STEPS = 8
 
-# anvil's fixed dev accounts, matching the demo/dev deployment
-_ACCOUNTS = {
-    1: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    2: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-    3: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-    4: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+#: the canned instructions need this many distinct compliant destinations
+_COMPLIANT_NEEDED = 3
+
+#: chip text and description per canned instruction, keyed by normalized text
+_CANNED: dict[str, str] = {
+    "pay the vendor invoice batch": (
+        "Three small compliant transfers that auto-execute under policy"
+    ),
+    "send 50,000 agd to the treasury desk": "A large transfer that escalates to a human guardian",
+    "refund 10 agd to the frozen counterparty": (
+        "A transfer to a frozen address the policy denies outright"
+    ),
 }
-FROZEN_ACCOUNT = _ACCOUNTS[4]
 
 
 def _transfer(token: str, operator: str, to: str, amount: int) -> dict[str, Any]:
@@ -48,39 +54,70 @@ def _transfer(token: str, operator: str, to: str, amount: int) -> dict[str, Any]
     }
 
 
-def canned_plans(token: str, operator: str) -> dict[str, dict[str, Any]]:
-    """The MockLLM's scripted plans, keyed by normalized instruction."""
+def parties_from_state(state: dict[str, Any]) -> dict[str, list[str]]:
+    """The seeded parties the deployment recorded in ``state.json`` (W6, D10).
+
+    The runner addresses nothing it did not read from the deployment: no
+    literal address lives here. A state file without usable parties is a
+    configuration error, not a reason to guess (AGENTS.md C1, C9).
+    """
+    parties = state.get("parties")
+    compliant = parties.get("compliant") if isinstance(parties, dict) else None
+    frozen = parties.get("frozen") if isinstance(parties, dict) else None
+    if (
+        not isinstance(compliant, list)
+        or len(compliant) < _COMPLIANT_NEEDED
+        or not isinstance(frozen, list)
+        or not frozen
+    ):
+        raise ConfigError(
+            "state.json has no usable parties (expected parties.compliant with at least "
+            f"{_COMPLIANT_NEEDED} addresses and parties.frozen with one); redeploy with the "
+            "dev stack (make dev) or scripts/demo.sh so the deployment records its world"
+        )
+    return {"compliant": list(compliant), "frozen": list(frozen)}
+
+
+def canned_plans(
+    token: str, operator: str, parties: dict[str, list[str]]
+) -> dict[str, dict[str, Any]]:
+    """The MockLLM's scripted plans, keyed by normalized instruction.
+
+    Destinations come from ``parties`` (``parties_from_state``), never from a
+    constant: the console drives whatever world the deployment seeded.
+    """
+    compliant = parties["compliant"]
+    frozen = parties["frozen"][0]
     plans = {
         "pay the vendor invoice batch": {
-            "description": "Three small compliant transfers that auto-execute under policy",
+            "description": _CANNED["pay the vendor invoice batch"],
             "plan": [
-                {"tool": "check_compliance", "args": {"address": _ACCOUNTS[1]}},
-                _transfer(token, operator, _ACCOUNTS[1], 1_200),
-                _transfer(token, operator, _ACCOUNTS[2], 2_500),
-                _transfer(token, operator, _ACCOUNTS[3], 3_400),
+                {"tool": "check_compliance", "args": {"address": compliant[0]}},
+                _transfer(token, operator, compliant[0], 1_200),
+                _transfer(token, operator, compliant[1], 2_500),
+                _transfer(token, operator, compliant[2], 3_400),
             ],
         },
         "send 50,000 agd to the treasury desk": {
-            "description": "A large transfer that escalates to a human guardian",
+            "description": _CANNED["send 50,000 agd to the treasury desk"],
             "plan": [
-                {"tool": "check_compliance", "args": {"address": _ACCOUNTS[1]}},
-                _transfer(token, operator, _ACCOUNTS[1], 50_000),
+                {"tool": "check_compliance", "args": {"address": compliant[0]}},
+                _transfer(token, operator, compliant[0], 50_000),
             ],
         },
         "refund 10 agd to the frozen counterparty": {
-            "description": "A transfer to a frozen address the policy denies outright",
-            "plan": [_transfer(token, operator, FROZEN_ACCOUNT, 10)],
+            "description": _CANNED["refund 10 agd to the frozen counterparty"],
+            "plan": [_transfer(token, operator, frozen, 10)],
         },
     }
     return plans
 
 
 def canned_instructions() -> list[dict[str, str]]:
-    """Instruction chips for the console (plan bodies need live addresses)."""
-    placeholder = canned_plans(token="0x0", operator="0x0")
+    """Instruction chips for the console: text and description, no addresses."""
     return [
-        {"instruction": _title(key), "description": value["description"]}
-        for key, value in placeholder.items()
+        {"instruction": _title(key), "description": description}
+        for key, description in _CANNED.items()
     ]
 
 
@@ -155,7 +192,9 @@ class AgentRunner:
         runtime, state = self._ensure_runtime()
         mode = llm_mode()
         if mode == MOCK_MODE:
-            plans = canned_plans(state["token_address"], runtime.chain.operator_address)
+            plans = canned_plans(
+                state["token_address"], runtime.chain.operator_address, parties_from_state(state)
+            )
             entry = plans.get(_normalize(instruction))
             if entry is None:
                 known = ", ".join(f"'{_title(k)}'" for k in plans)

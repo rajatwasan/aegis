@@ -70,9 +70,12 @@ evals:
 	$(PY) -m aegis.evals_harness || $(PY) evals/harness.py
 
 # The committed report must be what the harness produces on this commit
-# (AGENTS.md T5): regenerate, then fail if the tree changed.
+# (AGENTS.md T5): regenerate, then fail if anything but the run timestamp
+# changed. When only the timestamp moved, the committed line is restored so a
+# green check leaves the tree clean.
 evals-check: evals
-	git diff --exit-code -- evals/report.md
+	git diff -I '^generated_at: ' --exit-code -- evals/report.md
+	git checkout -- evals/report.md
 
 # The single gate before every commit, push and pull request (AGENTS.md V1,
 # appendix B). Stops at the first failure. `make e2e` runs separately when the
