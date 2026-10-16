@@ -33,6 +33,7 @@ from aegis.anchoring import StateError
 from aegis.api.agent_runner import AgentRunner, UnknownInstructionError, canned_instructions
 from aegis.api.config import ApiConfig, load_chain_state
 from aegis.api.describe import describe_rule
+from aegis.api.guardian_check import GuardianBinding, verify_guardian_binding
 from aegis.api.models import (
     AgentRunRequest,
     AgentRunResponse,
@@ -67,6 +68,15 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
     app.title = "Aegis Guardian Console API"
     app.state.api_config = config
     app.state.runner = AgentRunner(config, bus, app)
+
+    # The signer must be the token's guardian, or nothing this service signs
+    # will execute. Checked once here; a mismatch or an unreadable chain stops
+    # startup (AGENTS.md C8). With no chain state there is nothing to bind to.
+    chain_state = load_chain_state(Path(config.state_dir))
+    binding: GuardianBinding | None = None
+    if chain_state is not None:
+        binding = verify_guardian_binding(chain_state, app.state.signer.address)
+    app.state.guardian_binding = binding
 
     app.add_middleware(
         CORSMiddleware,
@@ -246,6 +256,7 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
         explorer = state.get("explorer_url") or chains.explorer_from_env()
         meta = chains.chain_meta(chain_id, explorer)
         anchor_address = state.get("anchor_address")
+        bound: GuardianBinding | None = app.state.guardian_binding
         return ChainStatus(
             configured=True,
             connected=connected,
@@ -256,6 +267,8 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
             explorer_url=meta.explorer_url,
             anchor_address=anchor_address,
             anchor_url=chains.address_url(chain_id, anchor_address, explorer),
+            guardian_address=bound.guardian_address if bound else None,
+            guardian_verified=bound.verified if bound else False,
         )
 
     def _last_anchor() -> AnchorInfo | None:

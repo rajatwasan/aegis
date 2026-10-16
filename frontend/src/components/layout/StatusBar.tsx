@@ -20,7 +20,9 @@ export function StatusBar() {
     <header className="flex h-11 items-center gap-5 border-b border-edge bg-panel px-4">
       <div className="flex items-center gap-2" data-testid="chain-status">
         <Dot
-          tone={chain?.connected ? "ok" : chain?.configured ? "danger" : "neutral"}
+          tone={
+            chain?.connected ? "ok" : chain?.configured ? "danger" : "neutral"
+          }
           pulse={chain?.connected}
         />
         <span className="text-xs text-ink-dim">
@@ -36,6 +38,19 @@ export function StatusBar() {
         </span>
         {chain?.connected === true && chain.public === false && (
           <Badge tone="neutral">local</Badge>
+        )}
+        {chain?.configured === true && (
+          // the signer's binding to the token's on chain guardian is checked
+          // at API startup (W1); a running API with a configured chain is
+          // either verified or it would not have started, so an unverified
+          // badge here means the server is misreporting and is worth seeing
+          <Badge tone={chain.guardian_verified ? "ok" : "danger"}>
+            <span data-testid="guardian-binding">
+              {chain.guardian_verified
+                ? "guardian verified"
+                : "guardian unverified"}
+            </span>
+          </Badge>
         )}
       </div>
 

@@ -29,6 +29,7 @@ def _server_params(deployment, workdir: Path) -> StdioServerParameters:
         "AEGIS_RPC_URL": deployment["rpc_url"],
         "AEGIS_OPERATOR_KEY": KEYS[0],
         "AEGIS_GUARDIAN_KEY": KEYS[9],
+        "AEGIS_ALLOW_DEV_KEYS": "true",  # the fixture chain is a throwaway anvil
         "AEGIS_CHAIN_ID": str(CHAIN_ID),
         "AEGIS_TOKEN_ADDRESS": deployment["token"].address,
         "AEGIS_REGISTRY_ADDRESS": deployment["registry"].address,

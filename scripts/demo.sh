@@ -52,6 +52,9 @@ done
 
 export AEGIS_RPC_URL="$RPC_URL"
 export AEGIS_STATE_DIR="$STATE_DIR"
+# throwaway anvil: anvil's public dev key 9 is the demo guardian, opted in explicitly
+export AEGIS_GUARDIAN_KEY="${AEGIS_GUARDIAN_KEY:-0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6}"
+export AEGIS_ALLOW_DEV_KEYS="${AEGIS_ALLOW_DEV_KEYS:-true}"
 
 echo "=================================================================="
 echo " AEGIS DEMO — cryptographically enforced human-in-the-loop"

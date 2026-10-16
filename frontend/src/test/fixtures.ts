@@ -13,12 +13,15 @@ import type {
 
 export const TOKEN = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 export const OPERATOR = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+export const GUARDIAN = "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720";
 export const ALICE = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 export const ANCHOR_ADDRESS = "0x8464135c8F25Da09e49BC8782676a84730C318bC";
 export const ANCHOR_TX = "0x" + "ef".repeat(32);
 export const EXPLORER = "https://sepolia.basescan.org";
 
-export function makeProposal(overrides: Partial<ProposalRow> = {}): ProposalRow {
+export function makeProposal(
+  overrides: Partial<ProposalRow> = {},
+): ProposalRow {
   const now = Date.now() / 1000;
   return {
     decision_id: "dec-1",
@@ -66,6 +69,8 @@ export function makeChainStatus(
   return {
     configured: true,
     connected: true,
+    guardian_address: GUARDIAN,
+    guardian_verified: true,
     rpc_url: "https://sepolia.base.org",
     chain_id: 84532,
     chain_name: "base-sepolia",
@@ -115,7 +120,9 @@ export function makeLocalAnchor(): AnchorInfo {
   });
 }
 
-export function makeDecision(overrides: Partial<DecisionItem> = {}): DecisionItem {
+export function makeDecision(
+  overrides: Partial<DecisionItem> = {},
+): DecisionItem {
   return {
     decision_id: "gate-1",
     ts: new Date(Date.UTC(2026, 6, 12, 9, 30)).toISOString(),
@@ -124,7 +131,13 @@ export function makeDecision(overrides: Partial<DecisionItem> = {}): DecisionIte
     status: "executed",
     matched_rules: ["allow-small-compliant-transfer"],
     tx_hash: "ab".repeat(32),
-    proposal: { operation: 1, token: TOKEN, from: OPERATOR, to: ALICE, amount: 1200 },
+    proposal: {
+      operation: 1,
+      token: TOKEN,
+      from: OPERATOR,
+      to: ALICE,
+      amount: 1200,
+    },
     ...overrides,
   };
 }
@@ -138,14 +151,21 @@ export function makeAuditRecord(
     decision_id: `rec-${index}`,
     ts: new Date(Date.UTC(2026, 6, 12, 10, index)).toISOString(),
     actor: "agent",
-    proposal: { operation: 1, token: TOKEN, from: OPERATOR, to: ALICE, amount: 1000 },
+    proposal: {
+      operation: 1,
+      token: TOKEN,
+      from: OPERATOR,
+      to: ALICE,
+      amount: 1000,
+    },
     policy_result: {
       effect: "allow",
       matched_rules: ["allow-small-compliant-transfer"],
       status: "executed",
     },
     human_action: null,
-    prev_hash: index === 0 ? "0".repeat(64) : `${index - 1}`.repeat(1).padEnd(64, "a"),
+    prev_hash:
+      index === 0 ? "0".repeat(64) : `${index - 1}`.repeat(1).padEnd(64, "a"),
     record_hash: `${index}`.repeat(1).padEnd(64, "a"),
     signature: "f0".repeat(64),
     ...overrides,

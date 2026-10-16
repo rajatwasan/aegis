@@ -128,6 +128,10 @@ class ChainStatus(BaseModel):
     explorer_url: str | None = None
     anchor_address: str | None = None
     anchor_url: str | None = None
+    #: the token's on chain guardian, read at startup; None until a chain is configured
+    guardian_address: str | None = None
+    #: True only when the approval service's signer equals guardian_address
+    guardian_verified: bool = False
 
 
 class PartyStatus(BaseModel):

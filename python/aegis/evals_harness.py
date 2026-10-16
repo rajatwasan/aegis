@@ -48,6 +48,7 @@ from aegis.approval import (
     create_app,
 )
 from aegis.audit import AuditLog, AuditSigner
+from aegis.devkeys import ACCOUNTS, KEYS
 from aegis.policy import load_policy
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -59,21 +60,11 @@ POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
 CHAIN_ID = 31337
 THRESHOLD = 10_000
 
-# anvil's default dev mnemonic accounts (test-only, publicly known).
-ACCOUNTS = {
-    0: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-    1: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    2: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-    3: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-    4: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
-    9: "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
-}
-KEYS = {
-    0: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    9: "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6",
-}
+# anvil's dev accounts (aegis.devkeys): the harness owns a throwaway anvil,
+# which is why it may name them (AGENTS.md S2). Account 9 is the eval guardian.
 OPERATOR = ACCOUNTS[0]
 GUARDIAN = ACCOUNTS[9]
+GUARDIAN_KEY = KEYS[9]
 FROZEN_ACCOUNT = ACCOUNTS[4]
 
 
@@ -126,7 +117,7 @@ def deploy(chain: ChainClient) -> dict[str, Any]:
     for i in range(4):
         chain.call_tx(registry.functions.setClaim(ACCOUNTS[i], kyc_topic, True, 0))
 
-    signer = GuardianSigner(KEYS[9], CHAIN_ID)
+    signer = GuardianSigner(GUARDIAN_KEY, CHAIN_ID)
     now = int(time.time())
     mint_auth = build_authorization(
         decision_id="eval-mint-operator",
@@ -165,7 +156,7 @@ def build_runtime(chain: ChainClient, deployment: dict[str, Any], workdir: Path)
         audit_log_path=str(workdir / "audit.jsonl"),
         audit_key_file=str(workdir / "audit.key"),
         policy_path=str(POLICY_PATH),
-        guardian_key=KEYS[9],
+        guardian_key=GUARDIAN_KEY,
         chain_id=CHAIN_ID,
     )
     # a fresh db/audit each run so repeated evals are deterministic

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from aegis.api import ApiConfig, create_api_app
 from aegis.approval import ApprovalConfig
+from aegis.devkeys import KEYS
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUT = REPO_ROOT / "frontend" / "openapi.json"
@@ -27,6 +28,7 @@ def main() -> int:
                 audit_log_path=f"{tmp}/audit.jsonl",
                 audit_key_file=f"{tmp}/audit.key",
                 policy_path=str(REPO_ROOT / "policies" / "default.yaml"),
+                guardian_key=KEYS[9],  # schema generation only; no chain, nothing is signed
             ),
             state_dir=tmp,
         )

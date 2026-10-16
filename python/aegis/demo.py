@@ -25,7 +25,9 @@ from langgraph.types import Command
 
 from aegis.agent import AegisRuntime, ChainClient, MockLLM, build_graph
 from aegis.approval import ApprovalConfig, GuardianSigner, build_authorization, create_app
+from aegis.approval.config import guardian_key_from_env
 from aegis.audit import AuditLog, AuditSigner
+from aegis.devkeys import ACCOUNTS, KEYS, address_of
 from aegis.policy import load_policy
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -34,20 +36,9 @@ POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
 CHAIN_ID = 31337
 THRESHOLD = 10_000
 
-ACCOUNTS = {
-    0: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-    1: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    2: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-    3: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-    4: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
-    9: "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
-}
-KEYS = {
-    0: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    9: "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6",
-}
+# anvil's dev accounts (aegis.devkeys); this module runs only against a
+# throwaway local chain, which is why it may name them (AGENTS.md S2)
 OPERATOR = ACCOUNTS[0]
-GUARDIAN = ACCOUNTS[9]
 FROZEN_ACCOUNT = ACCOUNTS[4]
 
 
@@ -56,9 +47,18 @@ def _rule(text: str) -> None:
 
 
 def deploy(
-    chain: ChainClient, *, operator: str | None = None, chain_id: int = CHAIN_ID
+    chain: ChainClient,
+    *,
+    guardian_key: str,
+    operator: str | None = None,
+    chain_id: int = CHAIN_ID,
 ) -> dict[str, Any]:
     """Deploy the suite and seed a world: compliant parties, supply, one freeze.
+
+    ``guardian_key`` is the approval service's signing key: its address becomes
+    the token's on chain guardian, and it signs the seed mint and freeze below.
+    There is no default (AGENTS.md C3); every caller passes the key it will run
+    the approval service with, so the binding check at API startup passes.
 
     ``operator`` defaults to anvil's account 0 for the local demo; a public-chain
     deployment passes its own funded address, which must own the registry (it is
@@ -67,9 +67,10 @@ def deploy(
     on-chain signature checks reject every authorization.
     """
     operator = operator or OPERATOR
+    guardian = address_of(guardian_key)
     registry = chain.deploy("ComplianceRegistry", operator)
     token = chain.deploy(
-        "GuardedToken", "Aegis Guarded", "AGD", GUARDIAN, operator, registry.address, THRESHOLD
+        "GuardedToken", "Aegis Guarded", "AGD", guardian, operator, registry.address, THRESHOLD
     )
     anchor = chain.deploy("AuditAnchor", operator)
     print(f"  registry   {registry.address}")
@@ -81,7 +82,7 @@ def deploy(
     for party in compliant:
         chain.call_tx(registry.functions.setClaim(party, kyc_topic, True, 0))
 
-    signer = GuardianSigner(KEYS[9], chain_id)
+    signer = GuardianSigner(guardian_key, chain_id)
     now = int(time.time())
     mint_auth = build_authorization(
         decision_id="demo-mint-operator",
@@ -120,11 +121,11 @@ def _transfer(token_addr: str, to: str, amount: int) -> dict[str, Any]:
     }
 
 
-def run(rpc_url: str, state_dir: Path) -> int:
+def run(rpc_url: str, state_dir: Path, guardian_key: str) -> int:
     state_dir.mkdir(parents=True, exist_ok=True)
     _rule("[1/5] Deploying the Aegis suite on anvil")
     chain = ChainClient(rpc_url, KEYS[0])
-    deployment = deploy(chain)
+    deployment = deploy(chain, guardian_key=guardian_key)
     token = deployment["token"]
 
     config = ApprovalConfig(
@@ -132,7 +133,7 @@ def run(rpc_url: str, state_dir: Path) -> int:
         audit_log_path=str(state_dir / "audit.jsonl"),
         audit_key_file=str(state_dir / "audit.key"),
         policy_path=str(POLICY_PATH),
-        guardian_key=KEYS[9],
+        guardian_key=guardian_key,
         chain_id=CHAIN_ID,
     )
     for stale in (state_dir / "approvals.db", state_dir / "audit.jsonl"):
@@ -195,6 +196,7 @@ def run(rpc_url: str, state_dir: Path) -> int:
         "rpc_url": rpc_url,
         "chain_id": CHAIN_ID,
         "operator_key": KEYS[0],
+        "guardian": address_of(guardian_key),
         "anchor_address": deployment["anchor"].address,
         "token_address": token.address,
         "registry_address": deployment["registry"].address,
@@ -221,7 +223,9 @@ def main(argv: list[str] | None = None) -> int:
         default=os.environ.get("AEGIS_STATE_DIR", str(REPO_ROOT / ".aegis" / "demo")),
     )
     args = parser.parse_args(argv)
-    return run(args.rpc_url, Path(args.state_dir))
+    # the demo's approval service signs with AEGIS_GUARDIAN_KEY; scripts/demo.sh
+    # sets anvil's dev key 9 plus AEGIS_ALLOW_DEV_KEYS=true for the throwaway chain
+    return run(args.rpc_url, Path(args.state_dir), guardian_key_from_env())
 
 
 if __name__ == "__main__":

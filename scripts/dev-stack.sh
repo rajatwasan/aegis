@@ -45,6 +45,12 @@ else
   echo "Using existing anvil on ${RPC_URL}"
 fi
 
+# The approval service signs with AEGIS_GUARDIAN_KEY. This stack runs against a
+# throwaway local anvil, so it may use anvil's public dev key 9 and must say so
+# explicitly (AEGIS_ALLOW_DEV_KEYS). A real deployment generates its own key.
+export AEGIS_GUARDIAN_KEY="${AEGIS_GUARDIAN_KEY:-0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6}"
+export AEGIS_ALLOW_DEV_KEYS="${AEGIS_ALLOW_DEV_KEYS:-true}"
+
 "$VENV_PY" -m aegis.devstack --rpc-url "$RPC_URL" --state-dir "$STATE_DIR"
 
 export AEGIS_STATE_DIR="$STATE_DIR"

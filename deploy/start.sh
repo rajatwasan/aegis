@@ -18,6 +18,13 @@ PUBLIC_RPC="${AEGIS_RPC_URL:-}"
 DEPLOYER_KEY="${AEGIS_DEPLOYER_KEY:-}"
 mkdir -p "$STATE_DIR"
 
+# The guardian key is the one secret this service exists to hold. There is no
+# default: generate one and set it (fly secrets set AEGIS_GUARDIAN_KEY=0x...).
+if [ -z "${AEGIS_GUARDIAN_KEY:-}" ]; then
+  echo "[start] AEGIS_GUARDIAN_KEY is not set; refusing to start (see deploy/DEPLOY.md)" >&2
+  exit 2
+fi
+
 rpc_alive() {
   curl -fsS -X POST "$1" \
     -H 'content-type: application/json' \
@@ -59,6 +66,8 @@ fi
 
 if [ "$deployed" -eq 0 ]; then
   start_anvil
+  # local anvil is a dev chain: anvil account 0 deploys, opted in explicitly
+  export AEGIS_ALLOW_DEV_KEYS=true
   # a fresh anvil has no contracts, so --reuse correctly redeploys
   python -m aegis.devstack \
     --rpc-url http://127.0.0.1:8545 \

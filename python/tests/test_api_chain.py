@@ -15,41 +15,53 @@ from fastapi.testclient import TestClient
 
 from aegis.api import ApiConfig, create_api_app
 from aegis.approval import ApprovalConfig
-from tests.conftest import ACCOUNTS, KEYS, OPERATOR
+from aegis.errors import GuardianMismatch, GuardianUnverified
+from tests.conftest import ACCOUNTS, GUARDIAN, KEYS, OPERATOR
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
 
 
-@pytest.fixture()
-def chain_app(deployment, tmp_path: Path):
-    """API app whose state.json points at the shared anvil deployment."""
+def write_state(deployment, tmp_path: Path, **overrides) -> dict:
+    """state.json pointing at the shared anvil deployment (plus a fresh anchor)."""
     anchor = deployment["chain"].deploy("AuditAnchor", OPERATOR)
     state = {
         "rpc_url": deployment["rpc_url"],
         "chain_id": 31337,
         "operator_key": KEYS[0],
+        "guardian": GUARDIAN,
         "anchor_address": anchor.address,
         "token_address": deployment["token"].address,
         "registry_address": deployment["registry"].address,
         "audit_log_path": str(tmp_path / "audit.jsonl"),
         "audit_key_file": str(tmp_path / "audit.key"),
     }
+    state.update(overrides)
     (tmp_path / "state.json").write_text(json.dumps(state))
-    config = ApiConfig(
+    return state
+
+
+def chain_config(tmp_path: Path, guardian_key: str = KEYS[9]) -> ApiConfig:
+    return ApiConfig(
         approval=ApprovalConfig(
             db_path=str(tmp_path / "approvals.db"),
             audit_log_path=str(tmp_path / "audit.jsonl"),
             audit_key_file=str(tmp_path / "audit.key"),
             policy_path=str(POLICY_PATH),
-            guardian_key=KEYS[9],
+            guardian_key=guardian_key,
         ),
         state_dir=str(tmp_path),
         evals_report_path=str(tmp_path / "none.md"),
         approval_wait_seconds=30.0,
         approval_poll_seconds=0.05,
     )
-    return create_api_app(config)
+
+
+@pytest.fixture()
+def chain_app(deployment, tmp_path: Path):
+    """API app whose state.json points at the shared anvil deployment."""
+    write_state(deployment, tmp_path)
+    return create_api_app(chain_config(tmp_path))
 
 
 @pytest.fixture()
@@ -180,6 +192,44 @@ def wait_for(predicate, timeout: float = 30.0, interval: float = 0.05):
             return value
         time.sleep(interval)
     raise AssertionError("condition not met in time")
+
+
+class TestGuardianBinding:
+    """W1: the API binds its signer to the token's on chain guardian at startup (C8)."""
+
+    def test_api_starts_when_guardian_matches(self, client: TestClient) -> None:
+        chain = client.get("/metrics").json()["chain"]
+        assert chain["guardian_verified"] is True
+        assert chain["guardian_address"].lower() == GUARDIAN.lower()
+
+    def test_api_refuses_start_on_guardian_mismatch(self, deployment, tmp_path: Path) -> None:
+        """The token was deployed with account 9 as guardian; signing with key 0 is dead."""
+        write_state(deployment, tmp_path)
+        with pytest.raises(GuardianMismatch) as excinfo:
+            create_api_app(chain_config(tmp_path, guardian_key=KEYS[0]))
+        assert excinfo.value.expected.lower() == GUARDIAN.lower()
+        assert excinfo.value.actual.lower() == ACCOUNTS[0].lower()
+        assert "AEGIS_GUARDIAN_KEY" in str(excinfo.value)
+
+    def test_api_refuses_start_when_chain_unreachable(self, deployment, tmp_path: Path) -> None:
+        """Unreadable is not "no guardian": the service does not come up (C1, I5)."""
+        write_state(deployment, tmp_path, rpc_url="http://127.0.0.1:9")  # discard port, closed
+        with pytest.raises(GuardianUnverified) as excinfo:
+            create_api_app(chain_config(tmp_path))
+        assert "will not start" in str(excinfo.value)
+
+    def test_api_refuses_start_when_token_has_no_code(self, deployment, tmp_path: Path) -> None:
+        write_state(deployment, tmp_path, token_address=OPERATOR)  # an EOA, no contract
+        with pytest.raises(GuardianUnverified, match="no contract code"):
+            create_api_app(chain_config(tmp_path))
+
+    def test_no_chain_state_means_nothing_to_bind(self, tmp_path: Path) -> None:
+        """Without state.json there is no token; the API serves the chainless routes."""
+        app = create_api_app(chain_config(tmp_path))
+        chain = TestClient(app).get("/metrics").json()["chain"]
+        assert chain["configured"] is False
+        assert chain["guardian_verified"] is False
+        assert chain["guardian_address"] is None
 
 
 class TestCompliance:
