@@ -1,7 +1,8 @@
-# fly.toml app configuration file generated for aegis-guardian-dawn on 2026-07-24T20:10:07-07:00
+# Fly configuration for the Guardian Console API (deploy/DEPLOY.md).
 #
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# Secrets (`fly secrets set`): AEGIS_GUARDIAN_KEY, AEGIS_DEPLOYER_KEY,
+# AEGIS_RPC_URL, AEGIS_CORS_ORIGINS, AEGIS_RP_ID, AEGIS_EXPECTED_ORIGIN.
+# Nothing deployment specific (origins, URLs, keys) lives in this file.
 
 app = 'aegis-guardian-dawn'
 primary_region = 'sjc'
@@ -13,6 +14,15 @@ primary_region = 'sjc'
   AEGIS_API_HOST = '0.0.0.0'
   AEGIS_API_PORT = '8080'
   AEGIS_STATE_DIR = '/data/aegis'
+  # The demo policy (allowlist = anvil accounts). A deployment anything real
+  # depends on ships its own file and names it here; there is no default.
+  AEGIS_POLICY_PATH = 'policies/dev.yaml'
+
+# The state directory holds the audit log, approvers and the deployment
+# record; without a volume a restart is a fresh world.
+[mounts]
+  source = 'aegis_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
