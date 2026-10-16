@@ -141,10 +141,13 @@ vercel --prod
 
 Note the URL it prints, e.g. `https://aegis-console.vercel.app`.
 
-## 3. Point CORS at the Vercel origin
+## 3. Point CORS and the passkey relying party at the Vercel origin
 
 ```bash
 fly secrets set AEGIS_CORS_ORIGINS=https://aegis-console.vercel.app
+# passkeys bind to the domain the PAGE is served from, not the API domain
+fly secrets set AEGIS_RP_ID=aegis-console.vercel.app \
+  AEGIS_EXPECTED_ORIGIN=https://aegis-console.vercel.app
 # (this restarts the machine -> fresh clean chain, which is what you want)
 ```
 
@@ -157,6 +160,9 @@ Open the Vercel URL **on your phone as well as your laptop**:
 3. The big transfer escalates → appears in Approvals with TTL ticking.
 4. Approve with a comment → execution resumes → transfer lands.
 5. Audit → the record → Verify → **PROOF OK**.
+5b. Press *pair phone* in the console, open `/guardian` on the phone, enter
+   the code, approve the next escalation with Face ID → the record shows
+   *human presence: passkey verified*.
 6. POST /anchor via the dashboard/console if exposed, or:
    `curl -X POST https://aegis-guardian.fly.dev/anchor`
 

@@ -19,9 +19,11 @@ from dataclasses import dataclass
 
 from aegis.errors import AegisError
 
-#: how the approver proved presence; "passkey" arrives with W10
+#: how the approver proved presence: a bearer token on the request, or a
+#: WebAuthn assertion from a passkey paired to the approver (W10)
 AuthMethod = str
 TOKEN_AUTH: AuthMethod = "token"
+PASSKEY_AUTH: AuthMethod = "passkey"
 
 
 class Unauthenticated(AegisError):

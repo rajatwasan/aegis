@@ -16,7 +16,7 @@ export class ApiError extends Error {
   }
 }
 
-async function unwrap<T>(
+export async function unwrap<T>(
   promise: Promise<{ data?: T; error?: unknown; response: Response }>,
 ): Promise<T> {
   const { data, error, response } = await promise;
@@ -135,6 +135,17 @@ export function useApproverMe(token: string) {
     retry: false,
     staleTime: 60_000,
     queryFn: () => unwrap(api.GET("/approvers/me")),
+  });
+}
+
+/**
+ * Mint a pairing code for the signed in approver (W10). The phone that
+ * enrolls with it gets a passkey bound to this approver id; the server reads
+ * the approver from the bearer token, so the body is empty.
+ */
+export function usePairingCode() {
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/guardian/pair/start")),
   });
 }
 

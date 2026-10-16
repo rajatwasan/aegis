@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS proposals (
     resolution      TEXT,
     authorization   TEXT,
     signature       TEXT,
-    nonce           INTEGER
+    nonce           INTEGER,
+    evidence        TEXT
 );
 CREATE TABLE IF NOT EXISTS counters (
     name  TEXT PRIMARY KEY,
@@ -51,6 +52,10 @@ class ProposalStore:
         self._lock = threading.Lock()
         with self._lock, self._conn:
             self._conn.executescript(_SCHEMA)
+            # databases created before the evidence column existed (W10)
+            columns = {r["name"] for r in self._conn.execute("PRAGMA table_info(proposals)")}
+            if "evidence" not in columns:
+                self._conn.execute("ALTER TABLE proposals ADD COLUMN evidence TEXT")
 
     def create(
         self, proposal: dict[str, Any], ttl_seconds: float, idempotency_key: str | None
@@ -96,14 +101,23 @@ class ProposalStore:
         return [self._to_dict(r) for r in rows]
 
     def add_approval(
-        self, decision_id: str, identity: dict[str, Any], comment: str
+        self,
+        decision_id: str,
+        identity: dict[str, Any],
+        comment: str,
+        evidence: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Record one approval. ``identity`` is the resolved approver's record
-        (``approver`` id, ``display_name``, ``auth_method``), never client input."""
+        (``approver`` id, ``display_name``, ``auth_method``), never client input.
+        ``evidence`` is verified presence material (a passkey assertion) kept
+        with the approval it belongs to, so dual control loses nothing."""
         with self._lock, self._conn:
             row = self.get(decision_id)
             assert row is not None
-            approvals = row["approvals"] + [{**identity, "comment": comment, "ts": time.time()}]
+            entry: dict[str, Any] = {**identity, "comment": comment, "ts": time.time()}
+            if evidence is not None:
+                entry["evidence"] = evidence
+            approvals = row["approvals"] + [entry]
             self._conn.execute(
                 "UPDATE proposals SET approvals = ? WHERE decision_id = ?",
                 (json.dumps(approvals), decision_id),
@@ -119,17 +133,21 @@ class ProposalStore:
         authorization: dict[str, Any] | None = None,
         signature: str | None = None,
         nonce: int | None = None,
+        evidence: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        """Close a decision. ``evidence`` is the presence material of the action
+        that resolved it; it is what the audit record embeds as ``human_presence``."""
         with self._lock, self._conn:
             self._conn.execute(
                 "UPDATE proposals SET status = ?, resolution = ?, authorization = ?,"
-                " signature = ?, nonce = ? WHERE decision_id = ?",
+                " signature = ?, nonce = ?, evidence = ? WHERE decision_id = ?",
                 (
                     status,
                     json.dumps(resolution),
                     json.dumps(authorization) if authorization is not None else None,
                     signature,
                     nonce,
+                    json.dumps(evidence) if evidence is not None else None,
                     decision_id,
                 ),
             )
@@ -211,7 +229,7 @@ class ProposalStore:
         d = dict(row)
         d["proposal"] = json.loads(d["proposal"])
         d["approvals"] = json.loads(d["approvals"])
-        for key in ("resolution", "authorization"):
+        for key in ("resolution", "authorization", "evidence"):
             if d[key] is not None:
                 d[key] = json.loads(d[key])
         return d

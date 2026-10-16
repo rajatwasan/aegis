@@ -1,24 +1,5 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
-
-const API_URL = "http://127.0.0.1:8000";
-const SHOT = { dir: "../docs/screenshots" };
-
-/**
- * The dev stack (scripts/dev-stack.sh -> aegis.devstack) registers approver
- * "dev" and writes its token next to state.json. The human in this test is
- * that approver: the token goes into the browser, never into the agent (W2).
- * Read inside the test, after Playwright has started the stack.
- */
-function devApproverToken(): string {
-  const here = dirname(fileURLToPath(import.meta.url));
-  return readFileSync(
-    resolve(here, "../../.aegis/dev/dev-approver.token"),
-    "utf8",
-  ).trim();
-}
+import { API_URL, SHOT_DIR, signInAsDevApprover } from "./support";
 
 /**
  * The whole story on the real stack: a canned instruction runs the agent,
@@ -31,9 +12,7 @@ test("canned instruction -> escalation -> approval -> executed -> PROOF OK", asy
 }) => {
   // --- sign in as the dev approver before the app loads, then confirm the
   // server resolved the token to a named approver
-  await page.addInitScript((token) => {
-    window.localStorage.setItem("aegis.approver_token", token);
-  }, devApproverToken());
+  await signInAsDevApprover(page);
   await page.goto("/console");
   await expect(page.getByTestId("approver-status")).toContainText(
     "Dev approver",
@@ -64,7 +43,7 @@ test("canned instruction -> escalation -> approval -> executed -> PROOF OK", asy
     "escalate-large-transfer",
   );
   await expect(page.getByRole("dialog")).toContainText("compliant");
-  await page.screenshot({ path: `${SHOT.dir}/approvals.png` });
+  await page.screenshot({ path: `${SHOT_DIR}/approvals.png` });
   await page.keyboard.press("Escape");
 
   // --- back in the console, approve inline and watch the loop close
@@ -74,7 +53,7 @@ test("canned instruction -> escalation -> approval -> executed -> PROOF OK", asy
   await card.getByRole("button", { name: "Approve" }).click();
   await expect(steps).toContainText("human approved — resuming");
   await expect(steps).toContainText("run complete");
-  await page.screenshot({ path: `${SHOT.dir}/console.png` });
+  await page.screenshot({ path: `${SHOT_DIR}/console.png` });
 
   // --- anchor the audit log, then verify the decision from the UI
   const anchored = await request.post(`${API_URL}/anchor`);
@@ -85,12 +64,12 @@ test("canned instruction -> escalation -> approval -> executed -> PROOF OK", asy
   const panel = page.getByTestId("verify-panel");
   await expect(panel).toContainText("PROOF OK");
   await expect(panel).toContainText("roots match");
-  await page.screenshot({ path: `${SHOT.dir}/audit-verify.png` });
+  await page.screenshot({ path: `${SHOT_DIR}/audit-verify.png` });
 
   // --- dashboard reflects the run
   await page.goto("/");
   await expect(page.getByText("total decisions")).toBeVisible();
   await expect(page.getByTestId("effect-bar")).toBeVisible();
   await expect(page.getByText(/batch #\d+/)).toBeVisible();
-  await page.screenshot({ path: `${SHOT.dir}/dashboard.png` });
+  await page.screenshot({ path: `${SHOT_DIR}/dashboard.png` });
 });

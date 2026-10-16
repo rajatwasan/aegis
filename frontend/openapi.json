@@ -261,6 +261,18 @@
             ],
             "title": "Human Action"
           },
+          "human_presence": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Human Presence"
+          },
           "index": {
             "title": "Index",
             "type": "integer"
@@ -487,6 +499,34 @@
         "title": "ChainStatus",
         "type": "object"
       },
+      "DecideIn": {
+        "properties": {
+          "action": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "comment": {
+            "default": "",
+            "title": "Comment",
+            "type": "string"
+          },
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          }
+        },
+        "required": [
+          "action",
+          "credential"
+        ],
+        "title": "DecideIn",
+        "type": "object"
+      },
       "DecisionItem": {
         "description": "One policy-gate decision, projected from its audit record.",
         "properties": {
@@ -671,6 +711,89 @@
           "chain"
         ],
         "title": "MetricsResponse",
+        "type": "object"
+      },
+      "PairCompleteIn": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          }
+        },
+        "required": [
+          "code",
+          "credential"
+        ],
+        "title": "PairCompleteIn",
+        "type": "object"
+      },
+      "PairCompleteOut": {
+        "properties": {
+          "approver_id": {
+            "title": "Approver Id",
+            "type": "string"
+          },
+          "credential_id": {
+            "title": "Credential Id",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "sign_count": {
+            "title": "Sign Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "credential_id",
+          "sign_count",
+          "approver_id",
+          "display_name"
+        ],
+        "title": "PairCompleteOut",
+        "type": "object"
+      },
+      "PairOptionsIn": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "PairOptionsIn",
+        "type": "object"
+      },
+      "PairStartOut": {
+        "properties": {
+          "approver_id": {
+            "title": "Approver Id",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "code",
+          "approver_id",
+          "expires_at"
+        ],
+        "title": "PairStartOut",
         "type": "object"
       },
       "PartyStatus": {
@@ -1371,6 +1494,223 @@
           }
         },
         "summary": "Events"
+      }
+    },
+    "/guardian/auth-options/{proposal_id}": {
+      "post": {
+        "operationId": "auth_options_guardian_auth_options__proposal_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Auth Options Guardian Auth Options  Proposal Id  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Auth Options"
+      }
+    },
+    "/guardian/decide/{proposal_id}": {
+      "post": {
+        "operationId": "decide_guardian_decide__proposal_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Guardian Decide  Proposal Id  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide"
+      }
+    },
+    "/guardian/pair/complete": {
+      "post": {
+        "operationId": "pair_complete_guardian_pair_complete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairCompleteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairCompleteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pair Complete"
+      }
+    },
+    "/guardian/pair/options": {
+      "post": {
+        "operationId": "pair_options_guardian_pair_options_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairOptionsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Pair Options Guardian Pair Options Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pair Options"
+      }
+    },
+    "/guardian/pair/start": {
+      "post": {
+        "description": "Mint a pairing code for the signed in approver (bearer token required).",
+        "operationId": "pair_start_guardian_pair_start_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairStartOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pair Start"
       }
     },
     "/metrics": {

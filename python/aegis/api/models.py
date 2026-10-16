@@ -42,6 +42,7 @@ class AuditRecordItem(BaseModel):
     proposal: dict[str, Any]
     policy_result: dict[str, Any]
     human_action: dict[str, Any] | None = None
+    human_presence: dict[str, Any] | None = None
     prev_hash: str
     record_hash: str
     signature: str
