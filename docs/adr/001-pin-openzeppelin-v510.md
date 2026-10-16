@@ -13,7 +13,7 @@ every `forge build`/`forge test`. Installing a newer foundry is prohibited
 
 Pin `openzeppelin-contracts` to v5.1.0 (October 2024), contemporary with the
 installed toolchain. It satisfies the "OpenZeppelin v5.x" requirement in
-PROMPT.md and compiles cleanly with solc 0.8.26.
+`docs/history/overnight-build/PROMPT.md` and compiles cleanly with solc 0.8.26.
 
 ## Consequences
 
