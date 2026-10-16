@@ -347,6 +347,39 @@ describe("ApprovalsPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId("proposal-dec-1")).toBeInTheDocument();
   });
+
+  it("mints a phone pairing code for the signed in approver", async () => {
+    const starts: string[] = [];
+    server.use(
+      http.post(`${API_URL}/guardian/pair/start`, ({ request }) => {
+        starts.push(request.headers.get("authorization") ?? "");
+        return HttpResponse.json({
+          code: "ABQ7K2",
+          approver_id: "casey",
+          expires_at: Date.now() / 1000 + 300,
+        });
+      }),
+    );
+    renderApprovals();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "pair phone" }));
+
+    const code = await screen.findByTestId("pairing-code");
+    expect(code).toHaveTextContent("ABQ7K2");
+    expect(code).toHaveTextContent(/[4-5]:\d{2}/); // the five minute TTL, live
+    expect(starts).toEqual([AS_CASEY]); // the server binds the code to this approver
+
+    await user.click(screen.getByRole("button", { name: "dismiss pairing code" }));
+    expect(screen.queryByTestId("pairing-code")).toBeNull();
+    expect(screen.getByRole("button", { name: "pair phone" })).toBeInTheDocument();
+  });
+
+  it("offers no pairing control without a resolved approver", async () => {
+    window.localStorage.setItem("aegis.approver_token", "tok-forged");
+    renderApp(<App />, { route: "/approvals" });
+    expect(await screen.findByText("token rejected")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "pair phone" })).toBeNull();
+  });
 });
 
 describe("PolicyPage", () => {

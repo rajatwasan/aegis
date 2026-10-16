@@ -4,19 +4,22 @@ human_presence and the untouched verification stack still proves them."""
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 from fastapi.testclient import TestClient
 
 from aegis import anchoring
 from aegis.approval import ApprovalConfig, create_app
 from aegis.audit import MerkleTree
 from aegis.audit.canonical import canonical_json
-from aegis.guardian_touch import GuardianTouchConfig, mount_guardian_touch
+from aegis.guardian_touch import GuardianTouchConfig, decision_challenge, mount_guardian_touch
+from aegis.guardian_touch.challenge import pairing_challenge
+from tests.conftest import KEYS, bearer, register_approver
+from tests.passkeys import SoftwarePasskey
 
 TOKEN = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 ALICE = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 BOB = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-CRED_ID = "dGVzdC1jcmVkZW50aWFs"
+RP_ID = "localhost"
+ORIGIN = "http://localhost:5173"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -40,65 +43,59 @@ def proposal_body() -> dict:
     }
 
 
-def test_guardian_record_carries_human_presence_and_still_proves(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_guardian_record_carries_human_presence_and_still_proves(tmp_path: Path) -> None:
     config = ApprovalConfig(
         db_path=str(tmp_path / "approvals.db"),
         audit_log_path=str(tmp_path / "audit.jsonl"),
         audit_key_file=str(tmp_path / "audit.key"),
         policy_path=str(REPO_ROOT / "policies" / "default.yaml"),
+        guardian_key=KEYS[9],
     )
     app = create_app(config)
-    mount_guardian_touch(
-        app, GuardianTouchConfig(rp_id="localhost", expected_origin="http://localhost:5173")
-    )
+    mount_guardian_touch(app, GuardianTouchConfig(rp_id=RP_ID, expected_origin=ORIGIN))
     client = TestClient(app)
-    app.state.guardian_store.add_credential(CRED_ID, b"cose-key", 0)
 
-    # the passkey layer is tested elsewhere; here we stub the verification to
-    # drive the real /guardian/decide -> approve -> audit-append pipeline
-    monkeypatch.setattr(
-        "aegis.guardian_touch.routes.verify_authentication_response",
-        lambda **_: SimpleNamespace(new_sign_count=7),
+    # one human, two credentials: the token pairs the phone, the phone decides
+    casey = register_approver(app, "casey", "Casey")
+    passkey = SoftwarePasskey(rp_id=RP_ID, origin=ORIGIN)
+    code = client.post("/guardian/pair/start", headers=bearer(casey)).json()["code"]
+    paired = client.post(
+        "/guardian/pair/complete",
+        json={"code": code, "credential": passkey.registration(pairing_challenge(code))},
     )
+    assert paired.status_code == 200, paired.text
 
     guardian_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
+    row = client.get(f"/proposals/{guardian_id}").json()
+    assertion = passkey.assertion(decision_challenge(guardian_id, row["proposal"]), 7)
     res = client.post(
         f"/guardian/decide/{guardian_id}",
-        json={
-            "action": "approve",
-            "comment": "from the phone",
-            "credential": {
-                "id": CRED_ID,
-                "response": {
-                    "signature": "c2ln",
-                    "authenticatorData": "YXV0aA",
-                    "clientDataJSON": "Y2xpZW50",
-                },
-            },
-        },
+        json={"action": "approve", "comment": "from the phone", "credential": assertion},
     )
-    assert res.status_code == 200
-    assert res.json()["human_presence"]["credential_id"] == CRED_ID
+    assert res.status_code == 200, res.text
+    assert res.json()["human_presence"]["credential_id"] == passkey.credential_id_b64
 
     # a console-path decision in the same log must simply omit the field
     console_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
-    client.post(
+    desk = client.post(
         f"/proposals/{console_id}/approve",
-        json={"approver": "casey", "comment": "from the desk"},
+        json={"comment": "from the desk"},
+        headers=bearer(casey),
     )
+    assert desk.status_code == 200, desk.text
 
     records = app.state.audit.records()
     by_id = {r["decision_id"]: r for r in records}
     assert by_id[guardian_id]["human_presence"] == {
-        "credential_id": CRED_ID,
+        "credential_id": passkey.credential_id_b64,
         "sign_count": 7,
-        "signature": "c2ln",
-        "authenticator_data": "YXV0aA",
-        "client_data_json": "Y2xpZW50",
+        "signature": assertion["response"]["signature"],
+        "authenticator_data": assertion["response"]["authenticatorData"],
+        "client_data_json": assertion["response"]["clientDataJSON"],
     }
+    assert by_id[guardian_id]["human_action"]["auth_methods"] == ["passkey"]
     assert "human_presence" not in by_id[console_id]
+    assert by_id[console_id]["human_action"]["auth_methods"] == ["token"]
 
     # the untouched verifiers cover the embedded evidence: hash chain +
     # Ed25519 over every record...

@@ -51,7 +51,12 @@ export function usePairDevice() {
           body: { code, credential: asBody(credential) },
         }),
       );
-      const state: PairingState = { paired: true, credentialId: done.credential_id };
+      const state: PairingState = {
+        paired: true,
+        credentialId: done.credential_id,
+        approverId: done.approver_id,
+        displayName: done.display_name,
+      };
       savePairing(state);
       return state;
     },

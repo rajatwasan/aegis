@@ -146,9 +146,25 @@ anchor, and the eval suite's blocked-injection count.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
-A Playwright smoke test (`make e2e`, uses your local Chrome) boots the full
-stack and drives exactly this loop: instruction → escalation → approval →
-executed transfer → PROOF OK.
+**Guardian (phone)** — the same approver on a phone, with a passkey instead of
+a token. A signed in approver presses *pair phone* in the console and gets a
+six character code (five minutes, single use); the phone opens `/guardian`,
+enters it and enrolls a platform passkey (Face ID, Touch ID) that is bound to
+that approver id. From then on every escalation lands on the phone with a
+buzz, and Approve or Reject asks the passkey to sign a challenge derived from
+the exact decision (`sha256(decision_id || canonical_json(proposal))`). The
+server verifies the assertion, resolves the bound approver, and records the
+decision through the same path the console uses, with `auth_method: passkey`
+and the assertion embedded in the signed audit record as `human_presence`.
+Revoking the approver (`aegis approver revoke`) stops their phone too.
+
+![Guardian phone queue](docs/screenshots/guardian.png)
+
+Two Playwright specs (`make e2e`, uses your local Chrome) boot the full stack
+and drive exactly these loops: instruction → escalation → approval → executed
+transfer → PROOF OK, and pair phone → passkey approval → human presence in the
+verified record, the latter with Chromium's virtual authenticator so the server
+verifies a real WebAuthn registration and assertion.
 
 ## Design highlights
 

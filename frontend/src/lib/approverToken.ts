@@ -31,12 +31,16 @@ export function storeApproverToken(token: string): void {
   }
 }
 
-/** Routes that carry the approver credential. Everything else stays anonymous. */
+/**
+ * Routes that carry the approver credential. Everything else stays anonymous,
+ * including the rest of /guardian: there the paired passkey is the credential
+ * (W10), and only minting a pairing code needs the signed in approver.
+ */
 export function needsApproverToken(url: string): boolean {
   const path = new URL(url, "http://placeholder").pathname;
   return (
     path === "/approvers/me" ||
-    /^\/proposals\/[^/]+\/(approve|reject)$/.test(path) ||
-    path.startsWith("/guardian/")
+    path === "/guardian/pair/start" ||
+    /^\/proposals\/[^/]+\/(approve|reject)$/.test(path)
   );
 }

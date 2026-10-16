@@ -44,7 +44,12 @@ function guardianHandlers() {
       HttpResponse.json({ challenge: "cGFpcg", rp: { id: "localhost" } }),
     ),
     http.post(`${API_URL}/guardian/pair/complete`, () =>
-      HttpResponse.json({ credential_id: "cred-registration", sign_count: 0 }),
+      HttpResponse.json({
+        credential_id: "cred-registration",
+        sign_count: 0,
+        approver_id: "casey",
+        display_name: "Casey",
+      }),
     ),
     http.post(`${API_URL}/guardian/auth-options/:id`, () =>
       HttpResponse.json({ challenge: "ZGVjaXNpb24", allowCredentials: [] }),
@@ -55,7 +60,12 @@ function guardianHandlers() {
 function pairInStorage() {
   window.localStorage.setItem(
     "aegis.guardian",
-    JSON.stringify({ paired: true, credentialId: "cred-assertion" }),
+    JSON.stringify({
+      paired: true,
+      credentialId: "cred-assertion",
+      approverId: "casey",
+      displayName: "Casey",
+    }),
   );
 }
 
@@ -76,6 +86,8 @@ describe("GuardianPage", () => {
           return HttpResponse.json({
             credential_id: "cred-registration",
             sign_count: 0,
+            approver_id: "casey",
+            display_name: "Casey",
           });
         },
       ),
@@ -102,7 +114,26 @@ describe("GuardianPage", () => {
     ]);
     expect(
       JSON.parse(window.localStorage.getItem("aegis.guardian") ?? "null"),
-    ).toEqual({ paired: true, credentialId: "cred-registration" });
+    ).toEqual({
+      paired: true,
+      credentialId: "cred-registration",
+      approverId: "casey",
+      displayName: "Casey",
+    });
+    // the phone says whose passkey it now holds, as the server reported it
+    expect(screen.getByTestId("guardian-identity")).toHaveTextContent(
+      "signing as Casey (passkey cred-reg)",
+    );
+  });
+
+  it("asks to pair again when the stored pairing predates approver binding", async () => {
+    window.localStorage.setItem(
+      "aegis.guardian",
+      JSON.stringify({ paired: true, credentialId: "cred-old" }),
+    );
+    renderApp(<App />, { route: "/guardian" });
+    expect(await screen.findByLabelText("pairing code")).toBeInTheDocument();
+    expect(screen.queryByTestId("guardian-dec-1")).toBeNull();
   });
 
   it("surfaces WebAuthn registration failures with their error name", async () => {
@@ -152,7 +183,7 @@ describe("GuardianPage", () => {
               decision_id: String(params.id),
               status: "approved",
             }),
-            passkey_assertion: { credential_id: "cred-assertion" },
+            human_presence: { credential_id: "cred-assertion", sign_count: 1 },
           });
         },
       ),

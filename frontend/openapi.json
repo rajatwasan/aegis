@@ -734,8 +734,16 @@
       },
       "PairCompleteOut": {
         "properties": {
+          "approver_id": {
+            "title": "Approver Id",
+            "type": "string"
+          },
           "credential_id": {
             "title": "Credential Id",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
             "type": "string"
           },
           "sign_count": {
@@ -745,7 +753,9 @@
         },
         "required": [
           "credential_id",
-          "sign_count"
+          "sign_count",
+          "approver_id",
+          "display_name"
         ],
         "title": "PairCompleteOut",
         "type": "object"
@@ -765,13 +775,23 @@
       },
       "PairStartOut": {
         "properties": {
+          "approver_id": {
+            "title": "Approver Id",
+            "type": "string"
+          },
           "code": {
             "title": "Code",
             "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "number"
           }
         },
         "required": [
-          "code"
+          "code",
+          "approver_id",
+          "expires_at"
         ],
         "title": "PairStartOut",
         "type": "object"
@@ -1648,7 +1668,26 @@
     },
     "/guardian/pair/start": {
       "post": {
+        "description": "Mint a pairing code for the signed in approver (bearer token required).",
         "operationId": "pair_start_guardian_pair_start_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -1659,6 +1698,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Pair Start"

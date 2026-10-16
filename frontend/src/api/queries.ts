@@ -138,6 +138,17 @@ export function useApproverMe(token: string) {
   });
 }
 
+/**
+ * Mint a pairing code for the signed in approver (W10). The phone that
+ * enrolls with it gets a passkey bound to this approver id; the server reads
+ * the approver from the bearer token, so the body is empty.
+ */
+export function usePairingCode() {
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/guardian/pair/start")),
+  });
+}
+
 export function useCannedInstructions() {
   return useQuery({
     queryKey: ["agent", "instructions"],

@@ -1,10 +1,14 @@
 """Passkey endpoints mounted on the existing approval app.
 
-Pairing enrolls a guardian passkey against a short-lived 6-char code.
-Deciding verifies that the passkey asserted over the exact decision —
-challenge = ``sha256(decision_id || canonical_json(proposal))`` — then routes
-into the existing approve/reject endpoints unchanged, with the verified
-assertion returned to the caller and stashed on the proposal row.
+A passkey is a second credential of an existing approver, never an identity of
+its own. Pairing starts from an authenticated approver (bearer token): the
+6 character code it mints is bound to that approver id, and the passkey
+enrolled with the code inherits the binding. Deciding verifies that the
+passkey asserted over the exact decision (challenge =
+``sha256(decision_id || canonical_json(proposal))``), resolves the bound
+approver, and hands the verified assertion to :func:`resolve_decision` as
+evidence, the same path the console takes (AGENTS.md C4, I2; spec W10,
+decision D9).
 """
 
 from __future__ import annotations
@@ -12,7 +16,6 @@ from __future__ import annotations
 import json
 import secrets
 import sqlite3
-import time
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
@@ -29,7 +32,8 @@ from webauthn.helpers.exceptions import WebAuthnException
 from webauthn.helpers.structs import PublicKeyCredentialDescriptor
 
 from aegis.approval import store as st
-from aegis.approval.app import ActionIn
+from aegis.approval.app import AuthedApprover, public_row
+from aegis.approval.identity import PASSKEY_AUTH, Approver
 from aegis.guardian_touch.challenge import decision_challenge, pairing_challenge
 from aegis.guardian_touch.config import GuardianTouchConfig
 from aegis.guardian_touch.store import GuardianStore
@@ -41,6 +45,8 @@ _CODE_LENGTH = 6
 
 class PairStartOut(BaseModel):
     code: str
+    approver_id: str
+    expires_at: float
 
 
 class PairOptionsIn(BaseModel):
@@ -55,6 +61,8 @@ class PairCompleteIn(BaseModel):
 class PairCompleteOut(BaseModel):
     credential_id: str
     sign_count: int
+    approver_id: str
+    display_name: str
 
 
 class DecideIn(BaseModel):
@@ -70,42 +78,47 @@ def mount_guardian_touch(app: FastAPI, config: GuardianTouchConfig | None = None
     app.state.guardian_config = config
     app.state.guardian_store = store
 
-    def _endpoint(path: str) -> Any:
-        return next(r.endpoint for r in app.routes if getattr(r, "path", None) == path)
-
-    # the existing approve/reject logic, invoked exactly as HTTP would
-    approve = _endpoint("/proposals/{decision_id}/approve")
-    reject = _endpoint("/proposals/{decision_id}/reject")
-
-    def _live_code(code: str) -> None:
+    def _live_code(code: str, now: float) -> dict[str, Any]:
         row = store.get_pairing_code(code)
         if row is None:
             raise HTTPException(404, "unknown pairing code")
         if row["used"]:
             raise HTTPException(409, "pairing code already used")
-        if row["expires_at"] <= time.time():
+        if row["expires_at"] <= now:
             raise HTTPException(410, "pairing code expired")
+        return row
+
+    def _bound_approver(approver_id: str) -> Approver:
+        """The approver a credential or code is bound to, if still allowed to act."""
+        row = app.state.store.get_approver(approver_id)
+        if row is None or row.get("revoked_at") is not None:
+            raise HTTPException(401, "passkey approver not recognized")
+        return Approver(id=row["id"], display_name=row["display_name"], auth_method=PASSKEY_AUTH)
 
     @app.post("/guardian/pair/start", response_model=PairStartOut)
-    def pair_start() -> PairStartOut:
+    def pair_start(approver: AuthedApprover) -> PairStartOut:
+        """Mint a pairing code for the signed in approver (bearer token required)."""
         for _ in range(5):  # codes are PKs and never deleted, so retry collisions
             code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_LENGTH))
+            expires_at = config.clock() + config.pairing_ttl_seconds
             try:
-                store.create_pairing_code(code, config.pairing_ttl_seconds)
+                store.create_pairing_code(code, approver.id, expires_at)
             except sqlite3.IntegrityError:
                 continue
-            return PairStartOut(code=code)
+            return PairStartOut(code=code, approver_id=approver.id, expires_at=expires_at)
         raise HTTPException(500, "could not allocate a pairing code")
 
     @app.post("/guardian/pair/options")
     def pair_options(body: PairOptionsIn) -> dict[str, Any]:
         code = body.code.upper()
-        _live_code(code)
+        pairing = _live_code(code, config.clock())
+        approver = _bound_approver(pairing["approver_id"])
         options = generate_registration_options(
             rp_id=config.rp_id,
             rp_name=config.rp_name,
             user_id=code.encode(),
-            user_name="guardian",
+            user_name=approver.id,
+            user_display_name=approver.display_name,
             challenge=pairing_challenge(code),
         )
         return json.loads(options_to_json(options))
@@ -113,7 +126,8 @@ def mount_guardian_touch(app: FastAPI, config: GuardianTouchConfig | None = None
     @app.post("/guardian/pair/complete", response_model=PairCompleteOut)
     def pair_complete(body: PairCompleteIn) -> PairCompleteOut:
         code = body.code.upper()
-        _live_code(code)
+        pairing = _live_code(code, config.clock())
+        approver = _bound_approver(pairing["approver_id"])
         try:
             verification = verify_registration_response(
                 credential=body.credential,
@@ -125,10 +139,18 @@ def mount_guardian_touch(app: FastAPI, config: GuardianTouchConfig | None = None
             raise HTTPException(400, f"registration verification failed: {exc}") from exc
         credential_id = bytes_to_base64url(verification.credential_id)
         store.add_credential(
-            credential_id, verification.credential_public_key, verification.sign_count
+            credential_id,
+            verification.credential_public_key,
+            verification.sign_count,
+            approver.id,
         )
         store.mark_code_used(code)
-        return PairCompleteOut(credential_id=credential_id, sign_count=verification.sign_count)
+        return PairCompleteOut(
+            credential_id=credential_id,
+            sign_count=verification.sign_count,
+            approver_id=approver.id,
+            display_name=approver.display_name,
+        )
 
     @app.post("/guardian/auth-options/{proposal_id}")
     def auth_options(proposal_id: str) -> dict[str, Any]:
@@ -161,6 +183,7 @@ def mount_guardian_touch(app: FastAPI, config: GuardianTouchConfig | None = None
         stored = store.get_credential(credential_id)
         if stored is None:
             raise HTTPException(404, "unknown credential")
+        approver = _bound_approver(stored["approver_id"])
         try:
             verification = verify_authentication_response(
                 credential=body.credential,
@@ -182,13 +205,7 @@ def mount_guardian_touch(app: FastAPI, config: GuardianTouchConfig | None = None
             "client_data_json": response.get("clientDataJSON"),
             "sign_count": verification.new_sign_count,
         }
-        # stash BEFORE routing: the audit record written inside approve/reject
-        # embeds this as human_presence, hashed and signed with the payload
-        store.set_proposal_assertion(proposal_id, json.dumps(assertion))
-        action = ActionIn(approver=f"passkey:{credential_id[:8]}", comment=body.comment)
-        result = (
-            approve(proposal_id, action)
-            if body.action == "approve"
-            else reject(proposal_id, action)
+        resolved = app.state.resolve_decision(
+            proposal_id, approver, body.action, body.comment, evidence=assertion
         )
-        return {**result, "passkey_assertion": assertion}
+        return public_row(resolved)

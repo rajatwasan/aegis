@@ -5,6 +5,9 @@ const STORAGE_KEY = "aegis.guardian";
 export interface PairingState {
   paired: true;
   credentialId: string;
+  /** the approver this passkey is bound to, as the server reported at pairing (W10) */
+  approverId: string;
+  displayName: string;
 }
 
 export function loadPairing(): PairingState | null {
@@ -18,10 +21,15 @@ export function loadPairing(): PairingState | null {
       "paired" in value &&
       (value as { paired: unknown }).paired === true &&
       "credentialId" in value &&
-      typeof (value as { credentialId: unknown }).credentialId === "string"
+      typeof (value as { credentialId: unknown }).credentialId === "string" &&
+      "approverId" in value &&
+      typeof (value as { approverId: unknown }).approverId === "string" &&
+      "displayName" in value &&
+      typeof (value as { displayName: unknown }).displayName === "string"
     ) {
       return value as PairingState;
     }
+    // a pairing saved before passkeys were bound to an approver: pair again
     return null;
   } catch {
     return null;

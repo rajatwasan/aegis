@@ -36,7 +36,7 @@ export function GuardianPage() {
       {pairing === null ? (
         <PairScreen onPaired={setPairing} />
       ) : (
-        <Queue credentialId={pairing.credentialId} />
+        <Queue pairing={pairing} />
       )}
     </div>
   );
@@ -80,8 +80,9 @@ function PairScreen({ onPaired }: { onPaired: (state: PairingState) => void }) {
           Pair this phone
         </h1>
         <p className="text-sm text-ink-dim">
-          Enter the 6-character code from the console, then confirm with Face
-          ID. This device&apos;s passkey will sign every decision you make.
+          Sign in on the console and press &ldquo;pair phone&rdquo;, enter the
+          6-character code here, then confirm with Face ID. This device&apos;s
+          passkey will sign every decision you make, as that approver.
         </p>
       </div>
       <input
@@ -121,7 +122,7 @@ function PairScreen({ onPaired }: { onPaired: (state: PairingState) => void }) {
 
 // -------------------------------------------------------------------- queue
 
-function Queue({ credentialId }: { credentialId: string }) {
+function Queue({ pairing }: { pairing: PairingState }) {
   const proposals = usePendingProposals();
   const [toast, setToast] = useState<string | null>(null);
 
@@ -164,8 +165,12 @@ function Queue({ credentialId }: { credentialId: string }) {
         ))
       )}
 
-      <p className="mt-2 text-center text-[11px] text-ink-faint">
-        signing as <span className="mono">passkey:{credentialId.slice(0, 8)}</span>
+      <p
+        data-testid="guardian-identity"
+        className="mt-2 text-center text-[11px] text-ink-faint"
+      >
+        signing as {pairing.displayName} (passkey{" "}
+        <span className="mono">{pairing.credentialId.slice(0, 8)}</span>)
       </p>
     </section>
   );

@@ -1,10 +1,15 @@
 import { defineConfig } from "@playwright/test";
 
 /**
- * E2E smoke over the real stack: anvil + deployed contracts + API + vite,
- * all booted (and torn down) by scripts/dev-stack.sh via webServer.
- * Uses the locally installed Chrome (channel) — no browser downloads.
+ * E2E over the real stack: anvil + deployed contracts + API + vite, all booted
+ * (and torn down) by scripts/dev-stack.sh via webServer. Uses the locally
+ * installed Chrome (channel) so nothing is downloaded; set AEGIS_E2E_BROWSER
+ * to a Chromium binary where Chrome is not installed.
  */
+const browser = process.env.AEGIS_E2E_BROWSER
+  ? { launchOptions: { executablePath: process.env.AEGIS_E2E_BROWSER } }
+  : { channel: "chrome" as const };
+
 export default defineConfig({
   testDir: "e2e",
   timeout: 120_000,
@@ -14,7 +19,7 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: "http://localhost:5173",
-    channel: "chrome",
+    ...browser,
     trace: "retain-on-failure",
     viewport: { width: 1440, height: 900 },
     colorScheme: "dark",
