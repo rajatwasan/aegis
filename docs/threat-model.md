@@ -15,8 +15,8 @@ human approval and a guardian signature.** Aegis is designed so that claim holds
    compromise defeats the whole model.
 3. **Audit integrity** — the hash-chained log and its on-chain Merkle anchors;
    the record that a decision happened and who approved it.
-4. **Policy integrity** — `policies/default.yaml`; its sha256 is bound into every
-   authorization via `policyHash`.
+4. **Policy integrity** — the file named by `AEGIS_POLICY_PATH` (`policies/dev.yaml`
+   locally); its sha256 is bound into every authorization via `policyHash`.
 5. **Compliance state** — KYC claims in `ComplianceRegistry`.
 
 ## Actors and trust

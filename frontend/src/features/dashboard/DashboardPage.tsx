@@ -9,6 +9,16 @@ import { ErrorState, Skeleton } from "../../components/ui/States";
 import { cn } from "../../lib/format";
 import type { Tone } from "../../lib/tone";
 
+/**
+ * The eval number says when it was produced: a report without a run date is
+ * labeled as such rather than shown as current (W7, decision D6).
+ */
+function injectionsLabel(injections: Metrics["injections"] | undefined): string {
+  if (!injections) return "injections blocked";
+  if (!injections.generated_at) return "injections blocked, eval run date unknown";
+  return `injections blocked, last eval run ${injections.generated_at.slice(0, 10)}`;
+}
+
 /** The landing view: the runtime's vital signs at a glance. */
 export function DashboardPage() {
   const metrics = useMetrics();
@@ -65,12 +75,14 @@ export function DashboardPage() {
             }
           />
           <StatCard
-            label="injections blocked"
+            label={injectionsLabel(data?.injections)}
             value={data?.injections?.blocked}
             tone="ok"
             hint={
               data?.injections
-                ? `${data.injections.bypasses}/${data.injections.attacks} bypasses in evals`
+                ? `${data.injections.bypasses}/${data.injections.attacks} bypasses, ${
+                    data.injections.mode ?? "mode not recorded"
+                  }`
                 : "run make evals"
             }
           />

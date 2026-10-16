@@ -616,7 +616,11 @@ export interface components {
       /** Detail */
       detail?: components["schemas"]["ValidationError"][];
     };
-    /** InjectionStats */
+    /**
+     * InjectionStats
+     * @description The eval headline with its provenance: a number without a date and a
+     *     mode is a number nobody can check (W7, decision D6).
+     */
     InjectionStats: {
       /** Attacks */
       attacks: number;
@@ -624,6 +628,12 @@ export interface components {
       blocked: number;
       /** Bypasses */
       bypasses: number;
+      /** Generated At */
+      generated_at?: string | null;
+      /** Mode */
+      mode?: string | null;
+      /** Source */
+      source: string;
     };
     /** MetricsResponse */
     MetricsResponse: {

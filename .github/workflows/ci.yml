@@ -58,7 +58,8 @@ jobs:
       - name: Evals regenerate the committed report (T5)
         run: |
           python -m aegis.evals_harness
-          git diff --exit-code -- evals/report.md
+          # the header carries the run time (W7); everything else must match
+          git diff -I '^generated_at: ' --exit-code -- evals/report.md
 
   frontend:
     runs-on: ubuntu-latest

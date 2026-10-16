@@ -19,7 +19,7 @@ from aegis.errors import GuardianMismatch, GuardianUnverified
 from tests.conftest import ACCOUNTS, GUARDIAN, KEYS, OPERATOR, bearer, register_approver
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 
 def write_state(deployment, tmp_path: Path, **overrides) -> dict:
@@ -33,6 +33,11 @@ def write_state(deployment, tmp_path: Path, **overrides) -> dict:
         "anchor_address": anchor.address,
         "token_address": deployment["token"].address,
         "registry_address": deployment["registry"].address,
+        # the world conftest seeded: accounts 1 to 3 compliant, account 4 frozen (W6)
+        "parties": {
+            "compliant": [ACCOUNTS[1], ACCOUNTS[2], ACCOUNTS[3]],
+            "frozen": [ACCOUNTS[4]],
+        },
         "audit_log_path": str(tmp_path / "audit.jsonl"),
         "audit_key_file": str(tmp_path / "audit.key"),
     }
@@ -249,6 +254,42 @@ class TestCompliance:
 
 
 class TestAgentRun:
+    def test_runner_without_parties_in_state_returns_503(
+        self, deployment, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """AC6.3: a deployment that did not record its world is not guessed at (C1, C9)."""
+        monkeypatch.delenv("AEGIS_LLM", raising=False)
+        state = write_state(deployment, tmp_path)
+        del state["parties"]
+        (tmp_path / "state.json").write_text(json.dumps(state))
+        client = TestClient(create_api_app(chain_config(tmp_path)))
+        res = client.post("/agent/run", json={"instruction": "Pay the vendor invoice batch"})
+        assert res.status_code == 503
+        assert "parties" in res.json()["detail"]
+        assert client.get("/proposals").json() == []
+
+    def test_runner_with_too_few_parties_returns_503(
+        self, deployment, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("AEGIS_LLM", raising=False)
+        write_state(deployment, tmp_path, parties={"compliant": [ACCOUNTS[1]], "frozen": []})
+        client = TestClient(create_api_app(chain_config(tmp_path)))
+        res = client.post("/agent/run", json={"instruction": "Pay the vendor invoice batch"})
+        assert res.status_code == 503
+
+    def test_canned_plans_address_the_recorded_world(self) -> None:
+        """Destinations are exactly the recorded parties, in order (W6)."""
+        from aegis.api.agent_runner import canned_plans, parties_from_state
+
+        parties = parties_from_state(
+            {"parties": {"compliant": ["0xA", "0xB", "0xC", "0xD"], "frozen": ["0xF"]}}
+        )
+        plans = canned_plans("0xT", "0xOP", parties)
+        batch = [step["args"]["to"] for step in plans["pay the vendor invoice batch"]["plan"][1:]]
+        assert batch == ["0xA", "0xB", "0xC"]
+        assert plans["send 50,000 agd to the treasury desk"]["plan"][1]["args"]["to"] == "0xA"
+        assert plans["refund 10 agd to the frozen counterparty"]["plan"][0]["args"]["to"] == "0xF"
+
     def test_runner_mock_mode_rejects_unknown_instruction(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -27,7 +27,7 @@ from tests.conftest import (
     register_approver,
 )
 
-POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 
 @pytest.fixture()

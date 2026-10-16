@@ -114,9 +114,15 @@ class PolicyResponse(BaseModel):
 
 
 class InjectionStats(BaseModel):
+    """The eval headline with its provenance: a number without a date and a
+    mode is a number nobody can check (W7, decision D6)."""
+
     attacks: int
     bypasses: int
     blocked: int
+    source: str  # the report file the numbers were read from
+    generated_at: str | None = None  # ISO 8601, from the report header
+    mode: str | None = None  # how the model under test behaved
 
 
 class ChainStatus(BaseModel):

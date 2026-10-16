@@ -26,7 +26,7 @@ def make_config(tmp_path: Path, **overrides) -> ApprovalConfig:
         db_path=str(tmp_path / "approvals.db"),
         audit_log_path=str(tmp_path / "audit.jsonl"),
         audit_key_file=str(tmp_path / "audit.key"),
-        policy_path=str(REPO_ROOT / "policies" / "default.yaml"),
+        policy_path=str(REPO_ROOT / "policies" / "dev.yaml"),
         ttl_seconds=900.0,
         guardian_key=KEYS[9],  # W1: no default; tests say which dev key they sign with
     )

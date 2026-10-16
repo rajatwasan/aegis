@@ -27,7 +27,7 @@ def main() -> int:
                 db_path=f"{tmp}/approvals.db",
                 audit_log_path=f"{tmp}/audit.jsonl",
                 audit_key_file=f"{tmp}/audit.key",
-                policy_path=str(REPO_ROOT / "policies" / "default.yaml"),
+                policy_path=str(REPO_ROOT / "policies" / "dev.yaml"),
                 guardian_key=KEYS[9],  # schema generation only; no chain, nothing is signed
             ),
             state_dir=tmp,

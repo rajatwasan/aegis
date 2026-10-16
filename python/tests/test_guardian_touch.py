@@ -63,7 +63,7 @@ def client(tmp_path: Path, clock: Clock) -> TestClient:
         db_path=str(tmp_path / "approvals.db"),
         audit_log_path=str(tmp_path / "audit.jsonl"),
         audit_key_file=str(tmp_path / "audit.key"),
-        policy_path=str(REPO_ROOT / "policies" / "default.yaml"),
+        policy_path=str(REPO_ROOT / "policies" / "dev.yaml"),
         guardian_key=KEYS[9],
     )
     app = create_app(config)

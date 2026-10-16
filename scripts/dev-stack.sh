@@ -50,6 +50,9 @@ fi
 # explicitly (AEGIS_ALLOW_DEV_KEYS). A real deployment generates its own key.
 export AEGIS_GUARDIAN_KEY="${AEGIS_GUARDIAN_KEY:-0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6}"
 export AEGIS_ALLOW_DEV_KEYS="${AEGIS_ALLOW_DEV_KEYS:-true}"
+# The policy is named here, never assumed (AGENTS.md C9): this is the dev
+# policy, whose allowlist is anvil's accounts.
+export AEGIS_POLICY_PATH="${AEGIS_POLICY_PATH:-policies/dev.yaml}"
 
 "$VENV_PY" -m aegis.devstack --rpc-url "$RPC_URL" --state-dir "$STATE_DIR"
 

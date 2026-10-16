@@ -1,12 +1,21 @@
-# Aegis default policy. Evaluated top-to-bottom; first matching rule wins.
-# Addresses are matched case-insensitively. Amounts are base token units.
+# Aegis DEV policy: for a throwaway local anvil chain only. Nothing picks it
+# up by itself; the approval service requires AEGIS_POLICY_PATH and the dev
+# and demo scripts point it here. A real deployment writes its own file with
+# its own allowlist (AGENTS.md C9, C10).
+#
+# Evaluated top-to-bottom; first matching rule wins. Addresses are matched
+# case-insensitively. Amounts are base token units.
 version: 1
 
 # Destinations considered "known". Anything else is an unknown destination.
+# These are anvil's publicly known mnemonic accounts, which is why a dev
+# policy may list them (AGENTS.md S2): the dev stack marks 1, 2 and 3 KYC
+# compliant and freezes account 4, so the canned demo instructions have
+# somewhere to send funds and something the policy must deny.
 allowlist:
-  - "0x70997970c51812dc3a010c7d01b50e0d17dc79c8" # anvil account 1
-  - "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc" # anvil account 2
-  - "0x90f79bf6eb2c4f870365e785982e1f101e93b906" # anvil account 3
+  - "0x70997970c51812dc3a010c7d01b50e0d17dc79c8" # anvil account 1, compliant
+  - "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc" # anvil account 2, compliant
+  - "0x90f79bf6eb2c4f870365e785982e1f101e93b906" # anvil account 3, compliant
 
 rules:
   # Frozen addresses never move funds, in either direction.

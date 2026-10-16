@@ -475,7 +475,7 @@ Acceptance criteria:
 
 ### W5 Explicit policy file, dev policy named dev
 
-Priority P2. Rules C9, C10. PR 7. Decision D3.
+Priority P2. Rules C9, C10. PR 8. Decision D3.
 
 - AC5.1 `policies/default.yaml` no longer exists; `policies/dev.yaml` exists
   with a header comment naming it dev only and listing why each allowlisted
@@ -487,17 +487,19 @@ Priority P2. Rules C9, C10. PR 7. Decision D3.
 
 ### W6 Demo destinations from deployment state
 
-Priority P2. Rules C1, C10, S2. PR 7. Decision D10.
+Priority P2. Rules C1, C10, S2. PR 8. Decision D10.
 
 - AC6.1 `state.json` written by `devstack` contains `parties.compliant` and
   `parties.frozen`.
 - AC6.2 `python/aegis/api/agent_runner.py` contains no literal address;
   `grep -n "0x[0-9a-fA-F]\{40\}" python/aegis/api/agent_runner.py` is empty.
 - AC6.3 `test_runner_without_parties_in_state_returns_503` passes.
+- AC6.4 A `state.json` without `parties` is not reused by `devstack --reuse`;
+  the world is redeployed so the record and the chain agree.
 
 ### W7 Metrics provenance for the eval number
 
-Priority P2. Rules C9, T5. PR 7 and PR 8. Decision D6.
+Priority P2. Rules C9, T5. PR 4 (AC7.3) and PR 8. Decision D6.
 
 - AC7.1 The harness writes `generated_at` and `mode: gullible MockLLM` to
   the report header; `parse_eval_report` returns them; `/metrics.injections`
@@ -505,11 +507,14 @@ Priority P2. Rules C9, T5. PR 7 and PR 8. Decision D6.
 - AC7.2 Dashboard card label reads "injections blocked, last eval run
   <date>"; `DashboardPage.test.tsx` asserts the label.
 - AC7.3 CI step `make evals && git diff --exit-code evals/report.md` exists
-  (PR 8).
+  (PR 4); after AC7.1 the diff ignores the `generated_at` line
+  (`git diff -I '^generated_at: '`) and `make evals-check` restores the
+  committed line when nothing else changed, so a green check leaves the tree
+  clean.
 
 ### W8 Explicit local chain fallback in the hosted start script
 
-Priority P2. Rule C9. PR 7. Decision D7.
+Priority P2. Rule C9. PR 9. Decision D7.
 
 - AC8.1 With `AEGIS_RPC_URL` and `AEGIS_DEPLOYER_KEY` set and the deploy
   failing, `deploy/start.sh` exits 1 unless `AEGIS_ALLOW_LOCAL_FALLBACK=true`;
@@ -520,7 +525,7 @@ Priority P2. Rule C9. PR 7. Decision D7.
 
 ### W9 Hosted deployment documents and configuration
 
-Priority P2. Rules C3, G7, Y4. PR 7. Decision D8.
+Priority P2. Rules C3, G7, Y4. PR 9. Decision D8.
 
 - AC9.1 `deploy/DEPLOY.md` is a deployment guide with no event references,
   covering: generate a guardian key as a secret, generate a deployer key,
@@ -577,7 +582,7 @@ Priority P1. Rules C4, C5, K11. PR 7. Decision D9.
 
 ### W11 README, threat model and architecture match the register
 
-Priority P1. Rule G7. PR 7 (final pass; PR 2 and PR 3 make their own
+Priority P1. Rule G7. PR 9 (final pass; PR 2 and PR 3 make their own
 edits as they land).
 
 - AC11.1 Every claim in `README.md` maps to a row in section 4 with status
@@ -641,7 +646,8 @@ item is TRUE in the register.
 | 5 | `hardening/05-console-provider` | W3 | 3 | small |
 | 6 | `hardening/06-spend-ledger` | W4 | 3 | small |
 | 7 | `hardening/07-passkey-merge` | W10 | 6 | medium (mostly existing code) |
-| 8 | `hardening/08-p2-cleanup` | W5, W6, W7, W8, W9, W11 | 2, 3, 7 | medium, split if over 400 lines |
+| 8 | `hardening/08-p2-cleanup` | W5, W6, W7 | 7 | medium |
+| 9 | `hardening/09-deploy-docs` | W8, W9, W11 | 8 | medium (mostly docs) |
 
 Each PR carries its own `make check` evidence. PR 4 lands early so later PRs
 are gated by the full check in CI.

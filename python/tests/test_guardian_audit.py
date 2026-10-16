@@ -48,7 +48,7 @@ def test_guardian_record_carries_human_presence_and_still_proves(tmp_path: Path)
         db_path=str(tmp_path / "approvals.db"),
         audit_log_path=str(tmp_path / "audit.jsonl"),
         audit_key_file=str(tmp_path / "audit.key"),
-        policy_path=str(REPO_ROOT / "policies" / "default.yaml"),
+        policy_path=str(REPO_ROOT / "policies" / "dev.yaml"),
         guardian_key=KEYS[9],
     )
     app = create_app(config)

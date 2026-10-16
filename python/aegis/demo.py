@@ -32,7 +32,7 @@ from aegis.devkeys import ACCOUNTS, KEYS, address_of
 from aegis.policy import load_policy
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 CHAIN_ID = 31337
 THRESHOLD = 10_000
@@ -112,7 +112,17 @@ def deploy(
     )
     chain.set_frozen(token, freeze_auth, signer.sign_authorization(freeze_auth))
     print("  minted 1,000,000 AGD to operator; froze account 4")
-    return {"registry": registry, "token": token, "anchor": anchor}
+    return {
+        "registry": registry,
+        "token": token,
+        "anchor": anchor,
+        # the seeded world, recorded in state.json so the console's canned
+        # instructions address parties that exist on this chain (W6, D10)
+        "parties": {
+            "compliant": [party for party in compliant if party != operator],
+            "frozen": [FROZEN_ACCOUNT],
+        },
+    }
 
 
 def _transfer(token_addr: str, to: str, amount: int) -> dict[str, Any]:
@@ -208,6 +218,7 @@ def run(rpc_url: str, state_dir: Path, guardian_key: str) -> int:
         "anchor_address": deployment["anchor"].address,
         "token_address": token.address,
         "registry_address": deployment["registry"].address,
+        "parties": deployment["parties"],
         "audit_log_path": config.audit_log_path,
         "audit_key_file": config.audit_key_file,
         "audit_public_key": audit_signer.public_key_hex(),

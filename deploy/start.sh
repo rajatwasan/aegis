@@ -24,6 +24,11 @@ if [ -z "${AEGIS_GUARDIAN_KEY:-}" ]; then
   echo "[start] AEGIS_GUARDIAN_KEY is not set; refusing to start (see deploy/DEPLOY.md)" >&2
   exit 2
 fi
+# The policy is named, never assumed: its hash is bound into every authorization.
+if [ -z "${AEGIS_POLICY_PATH:-}" ]; then
+  echo "[start] AEGIS_POLICY_PATH is not set; refusing to start (see deploy/DEPLOY.md)" >&2
+  exit 2
+fi
 
 rpc_alive() {
   curl -fsS -X POST "$1" \

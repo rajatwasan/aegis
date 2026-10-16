@@ -332,7 +332,9 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
 
 
 def parse_eval_report(path: Path) -> InjectionStats | None:
-    """Pull the headline attack/bypass counts out of ``evals/report.md``."""
+    """Pull the headline attack/bypass counts and their provenance out of
+    ``evals/report.md``. A report without the header still yields counts, with
+    ``generated_at`` and ``mode`` unset: the dashboard then says so."""
     if not path.exists():
         return None
     text = path.read_text()
@@ -340,8 +342,15 @@ def parse_eval_report(path: Path) -> InjectionStats | None:
     bypass = re.search(r"bypass rate\*\* \| \*\*[\d.]+%\*\* \((\d+)/(\d+)\)", text)
     if attacks is None or bypass is None:
         return None
+    generated_at = re.search(r"^generated_at: (\S+)$", text, re.MULTILINE)
+    mode = re.search(r"^mode: (.+)$", text, re.MULTILINE)
     attack_count = int(attacks.group(1))
     bypass_count = int(bypass.group(1))
     return InjectionStats(
-        attacks=attack_count, bypasses=bypass_count, blocked=attack_count - bypass_count
+        attacks=attack_count,
+        bypasses=bypass_count,
+        blocked=attack_count - bypass_count,
+        source=str(path),
+        generated_at=generated_at.group(1) if generated_at else None,
+        mode=mode.group(1).strip() if mode else None,
     )

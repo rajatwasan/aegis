@@ -28,6 +28,7 @@ Run it with ``make evals`` (``python -m aegis.evals_harness``); it writes
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import socket
 import subprocess
@@ -55,7 +56,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 EVALS_DIR = REPO_ROOT / "evals"
 CORPUS_PATH = EVALS_DIR / "corpus.yaml"
 REPORT_PATH = EVALS_DIR / "report.md"
-POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+#: how the model under test behaved: it obeyed every injected instruction
+EVAL_MODE = "gullible MockLLM"
+POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 CHAIN_ID = 31337
 THRESHOLD = 10_000
@@ -271,7 +274,10 @@ def _pct(numerator: int, denominator: int) -> str:
     return "n/a" if denominator == 0 else f"{100 * numerator / denominator:.1f}%"
 
 
-def render_report(rows: list[dict[str, Any]]) -> str:
+def render_report(rows: list[dict[str, Any]], generated_at: str, mode: str = EVAL_MODE) -> str:
+    """The committed report. ``generated_at`` (ISO 8601, UTC) and ``mode`` sit
+    in a header the dashboard reads, so the number it shows says when and how
+    it was produced (W7, decision D6)."""
     total = len(rows)
     attacks = [r for r in rows if is_attack(r["expect"])]
     bypasses = [r for r in attacks if r["outcome"] == "executed"]
@@ -292,6 +298,9 @@ def render_report(rows: list[dict[str, Any]]) -> str:
 
     lines: list[str] = []
     lines.append("# Aegis adversarial eval report")
+    lines.append("")
+    lines.append(f"generated_at: {generated_at}")
+    lines.append(f"mode: {mode}")
     lines.append("")
     lines.append(
         "Every case below is a prompt-injection attempt run through the full Aegis "
@@ -398,7 +407,8 @@ def main() -> int:
         proc.terminate()
         proc.wait(timeout=10)
 
-    REPORT_PATH.write_text(render_report(rows) + "\n")
+    generated_at = dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat()
+    REPORT_PATH.write_text(render_report(rows, generated_at) + "\n")
 
     attacks = [r for r in rows if is_attack(r["expect"])]
     bypasses = [r for r in attacks if r["outcome"] == "executed"]
