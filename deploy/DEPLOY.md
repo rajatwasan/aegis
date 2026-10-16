@@ -1,187 +1,163 @@
-# Aegis public deployment — Night Hack prep
+# Deploying Aegis
 
-Goal: kill "localhost" before tonight. One Fly machine runs anvil + the
-Guardian Console API; Vercel serves the console. Zero code changes — CORS and
-the API URL were already env-configurable.
+One container runs the Guardian Console API together with the chain it
+deploys to (a public testnet, or a local anvil for a demo); a static host
+serves the console. The reference setup below uses Fly for the API and Vercel
+for the console, but nothing depends on either: the image is
+`deploy/Dockerfile`, the entrypoint is `deploy/start.sh`, and every
+configuration value is an environment variable listed in section 2.
 
-Budget ~30–45 min including account signup. Everything runs from the repo root.
+Everything runs from the repository root.
 
-## 0. One-time tooling
+## 1. What a deployment holds
 
-```bash
-# Fly CLI
-curl -L https://fly.io/install.sh | sh      # then follow PATH instructions
-fly auth signup                              # or: fly auth login
+| Secret or setting | Held by | Why |
+| --- | --- | --- |
+| `AEGIS_GUARDIAN_KEY` | the API container only | signs every approved authorization; its address is the token's on chain guardian |
+| `AEGIS_DEPLOYER_KEY` | the API container only | deploys the suite and pays for anchor transactions on a public chain |
+| approver tokens | each approver, in their browser | approve and reject require one; the service stores only hashes |
+| `AEGIS_POLICY_PATH` | the API container | the policy file whose sha256 is bound into every authorization |
 
-# Vercel CLI (uses your npm)
-npm i -g vercel
-vercel login
-```
+The agent, the MCP server and the console hold none of these. A machine that
+has the guardian key is the trust anchor of the whole system: treat it the way
+you would treat a signing service.
 
-## 0b. Guardian key (required before anything else)
+## 2. Configuration
 
-The approval service refuses to start without `AEGIS_GUARDIAN_KEY`, and the
-contracts are deployed with that key's address as the token guardian. Generate
-a key that exists nowhere else and set it as a secret before `fly deploy`:
+Required, no defaults (the service exits 2 and names the variable otherwise):
+
+| Variable | Value |
+| --- | --- |
+| `AEGIS_GUARDIAN_KEY` | a 32 byte hex private key generated for this deployment and held nowhere else |
+| `AEGIS_POLICY_PATH` | path to the policy file inside the container, for example `policies/dev.yaml` for the demo policy or your own file |
+
+Public chain (recommended; without both, the container runs a local anvil and
+every restart is a fresh chain with an empty audit log):
+
+| Variable | Value |
+| --- | --- |
+| `AEGIS_RPC_URL` | an RPC endpoint of the chain, for example `https://sepolia.base.org` |
+| `AEGIS_DEPLOYER_KEY` | a funded throwaway key on that chain; it becomes the operator and pays for anchors |
+| `AEGIS_EXPLORER_URL` | only for chains the built in table does not know (see `python/aegis/chains.py`) |
+
+Behavior switches, all off unless set to the literal `true`:
+
+| Variable | Effect |
+| --- | --- |
+| `AEGIS_ALLOW_LOCAL_FALLBACK` | when the public deployment fails (RPC unreachable, key unfunded), run a local anvil instead of refusing to start. The startup log then says `mode: local anvil (FALLBACK, opted in)` and the console labels the chain `local`. Never set this on a machine whose anchors anyone relies on |
+| `AEGIS_ALLOW_DEV_KEYS` | accept anvil's public development keys as guardian or deployer. Local dev chains only; `start.sh` sets it itself for a local anvil and nothing else should |
+| `AEGIS_DUAL_CONTROL` | require two distinct approvers per decision |
+
+Frontend facing:
+
+| Variable | Value |
+| --- | --- |
+| `AEGIS_CORS_ORIGINS` | comma separated origins the console is served from, for example `https://your-console.example` |
+| `AEGIS_RP_ID`, `AEGIS_EXPECTED_ORIGIN` | the domain and origin the console page is served from (not the API), for phone passkeys: `your-console.example` and `https://your-console.example` |
+| `VITE_API_URL` (console build) | the API's public URL |
+
+Paths and ports (`AEGIS_STATE_DIR`, `AEGIS_API_HOST`, `AEGIS_API_PORT`) are
+set in `fly.toml` and the Dockerfile; the state directory must be a persistent
+volume or the audit log dies with the machine.
+
+## 3. Generate the keys
 
 ```bash
 python - <<'PY'
 from eth_account import Account
-a = Account.create()
-print("guardian address:", a.address); print("AEGIS_GUARDIAN_KEY:", a.key.hex())
+guardian, deployer = Account.create(), Account.create()
+print("guardian address:", guardian.address)
+print("AEGIS_GUARDIAN_KEY=" + guardian.key.hex())
+print("deployer address:", deployer.address)
+print("AEGIS_DEPLOYER_KEY=" + deployer.key.hex())
 PY
-fly secrets set AEGIS_GUARDIAN_KEY=0x<the key above>
 ```
 
-Anvil's public development keys are refused unless `AEGIS_ALLOW_DEV_KEYS=true`;
-never set that on a hosted machine.
+Keep the guardian key only in the deployment's secret store. Fund the deployer
+address on the chain you chose (Base Sepolia: the Coinbase faucet at
+<https://portal.cdp.coinbase.com/products/faucet>, about 0.02 ETH is plenty).
+Never use a key that holds anything of value.
 
-Approvers (the humans who may approve or reject) are created on the machine,
-and each gets a token printed once:
+## 4. API on Fly
+
+```bash
+curl -L https://fly.io/install.sh | sh && fly auth login
+fly apps create <your-app-name>            # then set `app` in fly.toml
+fly volumes create aegis_data --size 1     # persistent state directory
+
+fly secrets set \
+  AEGIS_GUARDIAN_KEY=0x<guardian key> \
+  AEGIS_DEPLOYER_KEY=0x<deployer key> \
+  AEGIS_RPC_URL=https://sepolia.base.org \
+  AEGIS_CORS_ORIGINS=https://<your-console-domain> \
+  AEGIS_RP_ID=<your-console-domain> \
+  AEGIS_EXPECTED_ORIGIN=https://<your-console-domain>
+
+fly deploy                                  # first build takes a few minutes (forge build)
+fly logs | grep '\[start\]'                 # expect "mode: public base-sepolia"
+```
+
+`fly.toml` sets `AEGIS_POLICY_PATH=policies/dev.yaml`, the demo policy whose
+allowlist is anvil's accounts; replace it with your own file (copy it into
+`policies/` before the build, or mount it) before anything real depends on the
+deployment.
+
+Create the first approver on the machine. The token is printed once; hand it
+to the person, who pastes it into the console's approver field:
 
 ```bash
 fly ssh console -C "aegis --state-dir /data/aegis approver add ops-casey --name Casey"
 ```
 
-Nobody can approve without a token, including the agent, the console on its
-own, or anyone who merely reaches the API. At startup the API reads the token's
-`guardian()` and refuses to start if it differs from the configured key; check
-`/metrics` for `chain.guardian_verified: true` after deploy.
-
-## 1. Backend (anvil + API) on Fly
-
-Files: `deploy/Dockerfile`, `deploy/start.sh`, `fly.toml`, `.dockerignore`.
-
-```bash
-cd <repo-root>
-
-# create the app (pick another name if taken, then update fly.toml `app`)
-fly apps create aegis-guardian
-
-fly deploy          # remote builder; first build ~5-8 min (forge build inside)
-```
-
-Smoke test:
-
-```bash
-curl https://aegis-guardian.fly.dev/metrics | head
-curl https://aegis-guardian.fly.dev/agent/instructions
-```
-
-You should see decision counts and the canned instruction chips. `/metrics`
-includes the live chain probe, so if it answers, the chain + deploy worked.
-
-Notes:
-- Without the Base Sepolia secrets below, `start.sh` runs a local anvil and a
-  machine restart means a fresh chain + empty audit log. The console labels that
-  chain `local` and shows no explorer links.
-- anvil is NOT exposed publicly — only the API is. All chain reads go
-  server-side, which the console already expects.
-
-## 1b. Anchor on Base Sepolia (public, verifiable roots)
-
-Anchoring to a public chain is what makes "PROOF OK" checkable by someone who
-does not trust the server: the anchoring transaction is on a block explorer and
-the console links straight to it. See `docs/adr/005-public-testnet-anchoring.md`.
-
-```bash
-# a throwaway deployer key + its address (never a key that holds value)
-python - <<'PY'
-from eth_account import Account
-a = Account.create()
-print("address:", a.address); print("key:", a.key.hex())
-PY
-```
-
-Fund the printed address with Base Sepolia ETH (~0.02 is plenty):
-Coinbase faucet <https://portal.cdp.coinbase.com/products/faucet> or
-<https://basefaucet.com>. Then:
-
-```bash
-fly secrets set \
-  AEGIS_RPC_URL=https://sepolia.base.org \
-  AEGIS_DEPLOYER_KEY=0x<the key you just funded>
-# setting secrets restarts the machine, which deploys the suite on Base Sepolia
-fly logs | grep -E "deploying|reusing|WARNING"
-```
-
-Confirm it took:
-
-```bash
-curl -s https://aegis-guardian.fly.dev/metrics | python -m json.tool | grep -A6 '"chain"'
-# expect chain_name "base-sepolia", public true, an explorer_url and anchor_url
-```
-
-Then anchor and follow the link (or press **Anchor now** on the dashboard):
-
-```bash
-curl -s -X POST https://aegis-guardian.fly.dev/anchor | python -m json.tool
-# -> batch.tx_url = https://sepolia.basescan.org/tx/0x...  <- open this
-```
-
-Notes:
-- The deployment is **reused** across restarts while the contracts still hold
-  code, so restarts no longer burn faucet gas or orphan the audit log.
-- If the RPC is unreachable or the key is unfunded, `start.sh` falls back to a
-  local anvil rather than failing — check `fly logs` for `WARNING` and the
-  status bar for a `local` badge before demoing.
-- The deployer is the operator: it owns the registry, holds the minted supply,
-  and pays for anchors. Top it up if anchoring starts failing.
-- `/metrics` exposes only scheme + host of the RPC url, so a keyed provider url
-  (`.../v2/<key>`) does not leak.
-
-## 2. Frontend (Guardian Console) on Vercel
+## 5. Console on Vercel
 
 ```bash
 cd frontend
-vercel link                                  # create project "aegis-console"
-vercel env add VITE_API_URL production       # value: https://aegis-guardian.fly.dev
+vercel link
+vercel env add VITE_API_URL production      # https://<your-app-name>.fly.dev
 vercel --prod
 ```
 
-Note the URL it prints, e.g. `https://aegis-console.vercel.app`.
+The URL it prints is the console domain used in the CORS and passkey
+variables above; set those secrets and redeploy the API if you did not know
+the domain beforehand.
 
-## 3. Point CORS and the passkey relying party at the Vercel origin
+## 6. Verify before anyone relies on it
 
 ```bash
-fly secrets set AEGIS_CORS_ORIGINS=https://aegis-console.vercel.app
-# passkeys bind to the domain the PAGE is served from, not the API domain
-fly secrets set AEGIS_RP_ID=aegis-console.vercel.app \
-  AEGIS_EXPECTED_ORIGIN=https://aegis-console.vercel.app
-# (this restarts the machine -> fresh clean chain, which is what you want)
+API=https://<your-app-name>.fly.dev
+curl -s $API/metrics | python -m json.tool | grep -A8 '"chain"'
+# chain_name "base-sepolia", public true, guardian_verified true
 ```
 
-## 4. Full-loop smoke test (the thing that matters)
+`guardian_verified: true` means the key the service signs with is the key the
+deployed token trusts; the service refuses to start when it is not. Then, in
+the console:
 
-Open the Vercel URL **on your phone as well as your laptop**:
-
-1. Dashboard loads, status bar shows the chain live (SSE connected).
-2. Console page → fire a canned instruction → steps stream in.
-3. The big transfer escalates → appears in Approvals with TTL ticking.
-4. Approve with a comment → execution resumes → transfer lands.
-5. Audit → the record → Verify → **PROOF OK**.
-5b. Press *pair phone* in the console, open `/guardian` on the phone, enter
-   the code, approve the next escalation with Face ID → the record shows
+1. Paste the approver token; the status bar names the approver.
+2. Console page, fire a canned instruction; the large transfer escalates.
+3. Approve it; the transfer executes; the audit record shows the approver.
+4. Press *pair phone*, open `/guardian` on a phone, enter the code, approve
+   the next escalation with Face ID; the record shows
    *human presence: passkey verified*.
-6. POST /anchor via the dashboard/console if exposed, or:
-   `curl -X POST https://aegis-guardian.fly.dev/anchor`
+5. Anchor (dashboard button or `curl -X POST $API/anchor`) and open the
+   anchor transaction on the explorer the proof links to.
 
-If SSE doesn't reconnect on phone-lock/unlock, note it — tonight's feature
-work will touch that path anyway.
+Only after step 5 passes on a public chain is the deployment something to
+cite (spec AC9.4).
 
-## Hackathon disclosure
+## 7. Operations
 
-Everything deployed today is pre-existing work and must be disclosed as such.
-Tonight's judged work = the new guardian-on-phone / proof-of-human feature,
-built during event hours on top of this.
-
-## Fallbacks
-
-- Fly build fails on forge: build artifacts locally (`cd contracts && forge
-  build`), remove the `RUN cd contracts && forge build` line, drop
-  `contracts/out` from `.dockerignore` so the artifacts ship in the context.
-- Vercel misbehaving: `cd frontend && npm run build` and drag `dist/` into
-  Netlify Drop as an emergency static host (set VITE_API_URL first via
-  `VITE_API_URL=... npm run build`).
-- Venue wifi dies mid-demo: phone hotspot; everything is public HTTPS, so
-  nothing depends on the venue network.
+- Restarts reuse the deployment while the contracts still hold code; the
+  audit log and approvers live on the volume.
+- Rotating the guardian key means redeploying the suite (the token trusts one
+  guardian); `devstack --reuse` refuses a state whose guardian differs from
+  the configured key, so a mismatch cannot start quietly.
+- Revoke an approver with `aegis approver revoke <id>`; their token and any
+  passkey paired to them stop working at once.
+- `/metrics` exposes only the scheme and host of the RPC URL, so a keyed
+  provider URL does not leak.
+- If the Fly builder cannot run `forge build`, build the contracts locally
+  (`cd contracts && forge build`), remove the `forge build` line from the
+  Dockerfile and drop `contracts/out` from `.dockerignore` so the artifacts
+  ship in the build context.

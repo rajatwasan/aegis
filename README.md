@@ -212,6 +212,28 @@ distraction, destination and rate-limit evasion, replay, and confused-deputy.
 Run it with `make evals`; the full breakdown is in
 [evals/report.md](evals/report.md).
 
+## What Aegis does not do
+
+Said here so the absence is a statement, not a discovery
+(spec `docs/specs/2026-10-hardening.md`, claims register):
+
+- **No zero knowledge proofs.** Nothing in the repository proves anything in
+  zero knowledge: not the approval set, not compliance, not the audit log.
+  The Merkle tree is over audit records and its proofs are ordinary inclusion
+  proofs. An approval set proof is recorded as future work (W13) and is not
+  scheduled.
+- **No MPC or threshold guardian.** The guardian is one key held by the
+  approval service. Dual control is two authenticated approvers, not a split
+  signature.
+- **No commitment over the approval set.** Approvals are rows in the approval
+  store and names in the signed audit record, not leaves of a tree.
+- **The eval number is a mock result.** 0 of 49 bypasses was measured with a
+  scripted model that obeys every injected instruction; it says the gate
+  holds below the model, not that a real model behaves.
+- **Under dual control, the signed record embeds the quorum completing
+  passkey assertion only** (W14); the first approver's assertion stays on the
+  proposal row.
+
 ## Repository layout
 
 - `contracts/` — Foundry project: guardian-gated ERC20/ERC1155, registry, anchor

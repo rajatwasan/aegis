@@ -517,11 +517,15 @@ Priority P2. Rules C9, T5. PR 4 (AC7.3) and PR 8. Decision D6.
 Priority P2. Rule C9. PR 9. Decision D7.
 
 - AC8.1 With `AEGIS_RPC_URL` and `AEGIS_DEPLOYER_KEY` set and the deploy
-  failing, `deploy/start.sh` exits 1 unless `AEGIS_ALLOW_LOCAL_FALLBACK=true`;
-  a shell test under `python/tests/test_start_script.py` runs the script with
-  a stub `python` on `PATH` and asserts both outcomes.
-- AC8.2 Startup log names the mode in one line: `public base-sepolia` or
-  `local anvil (dev)` or `local anvil (FALLBACK, opted in)`.
+  failing (or the RPC unreachable), `deploy/start.sh` exits 1 unless
+  `AEGIS_ALLOW_LOCAL_FALLBACK=true` (the literal `true`); the shell test
+  `python/tests/test_start_script.py` runs the script with stub `python`,
+  `anvil` and `curl` on `PATH` and asserts every branch, including that the
+  API never starts on a refusal.
+- AC8.2 Startup log names the mode in one line: `public <chain_name from
+  state.json>` or `local anvil (dev)` or `local anvil (FALLBACK, opted in)`.
+- AC8.3 Missing `AEGIS_GUARDIAN_KEY` or `AEGIS_POLICY_PATH` exits 2 before
+  anything is launched.
 
 ### W9 Hosted deployment documents and configuration
 
@@ -535,7 +539,10 @@ Priority P2. Rules C3, G7, Y4. PR 9. Decision D8.
   documented as a secret or env set at deploy time.
 - AC9.3 `docker-compose.yml` either runs the real API entrypoint with the
   required env (`python -m aegis.api`) or is removed; today it references
-  `aegis.approval.app:app`, which is a factory, not an app.
+  `aegis.approval.app:app`, which is a factory, not an app. Outcome: removed;
+  `deploy/Dockerfile` with `deploy/start.sh` is the one container path.
+- AC9.5 `fly.toml` mounts a volume at the state directory and names the
+  policy file; secrets are listed in its header and set at deploy time.
 - AC9.4 The hosted demo is redeployed with a fresh guardian key and the
   approver flow before any public link to it is shared again; until then the
   README does not link it.
@@ -588,7 +595,8 @@ edits as they land).
 - AC11.1 Every claim in `README.md` maps to a row in section 4 with status
   TRUE.
 - AC11.2 `README.md` gains a section "What Aegis does not do" listing K12,
-  K13, K14 as not built, so the absence is a statement, not a discovery.
+  K13, K14 as not built, so the absence is a statement, not a discovery; it
+  also states the mock qualifier on K8 and the W14 limitation.
 - AC11.3 `docs/threat-model.md` rows 6 and 8 updated; residual risks list
   approver credential theft and guardian key custody.
 - AC11.4 `docs/architecture.md` sequence diagram shows the authenticated

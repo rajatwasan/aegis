@@ -80,8 +80,13 @@ flowchart TB
 - **AegisRuntime** — the trusted seam between the LLM and the chain. Gates every
   proposal, executes ALLOWs, routes ESCALATEs to the approval service, and
   audits every decision.
-- **Approval service** — FastAPI app holding the guardian key. On human
-  approval it builds the exact `Authorization` struct and signs it EIP-712.
+- **Approval service** — FastAPI app holding the guardian key (required
+  configuration, no default; at startup it checks the key against the token's
+  on chain `guardian()`). Approvers are registered with `aegis approver add`
+  and prove who they are with a bearer token, or with a passkey paired to
+  them from the console; every resolution goes through one internal path that
+  records the approver id and auth method. On approval it builds the exact
+  `Authorization` struct and signs it EIP-712.
 - **Contracts** — `GuardedToken`/`GuardedAsset1155` gate transfers by threshold
   and compliance; the `GuardianModule` verifies the guardian signature, enforces
   single-use decision ids and deadlines, and checks every struct field against
@@ -113,13 +118,14 @@ sequenceDiagram
     participant Pol as Policy engine
     participant Tok as GuardedToken
     participant API as Approval service
-    participant H as Human
+    participant H as Approver (human)
     participant Log as Audit log
 
+    Note over API,Tok: startup: API reads Tok.guardian() and refuses to start<br/>unless it equals the address of AEGIS_GUARDIAN_KEY (W1)
     LLM->>Graph: propose_transfer(to, amount)
     Graph->>RT: handle(proposal)
     RT->>Pol: evaluate(proposal, context)
-    alt ALLOW (small, compliant, known dest)
+    alt ALLOW (small, compliant, known dest, within the rolling daily budget)
         RT->>Tok: transfer(to, amount)
         Tok-->>RT: receipt
         RT->>Log: append(executed)
@@ -129,9 +135,10 @@ sequenceDiagram
         RT->>API: POST /proposals
         RT->>Log: append(pending_approval)
         Note over Graph: LangGraph interrupt — agent pauses
-        H->>API: approve(decision_id)
+        H->>API: approve(decision_id) with Authorization: Bearer token,<br/>or /guardian/decide with a passkey assertion over the decision
+        API->>API: resolve approver from the credential (401 otherwise)
         API->>API: build Authorization + guardian EIP-712 sign
-        API->>Log: append(approved)
+        API->>Log: append(approved: approver id, auth_method,<br/>passkey evidence as human_presence)
         Graph->>RT: resume(decision_id)
         RT->>Tok: transferWithAuthorization(auth, sig)
         Tok->>Tok: verify guardian sig, decisionId unused,<br/>deadline, every field matches
@@ -141,7 +148,10 @@ sequenceDiagram
 ```
 
 If the human rejects (or the 15-minute TTL expires), the proposal resolves as
-rejected/expired, the agent resumes without a signature, and nothing moves.
+rejected/expired, the agent resumes without a signature, and nothing moves. A
+request without a credential the service issued never reaches the signer: the
+agent, the console on its own, and anyone who merely reaches the API get a 401
+before any state changes.
 
 ## The guarantee, precisely
 
@@ -178,7 +188,8 @@ the record is untampered *and* included under the anchored root.
 | --- | --- | --- | --- |
 | LLM → runtime | LLM output | typed tools + policy | schema validation, deterministic evaluate() |
 | runtime → chain | proposed op | consumed authorization | `GuardianModule` signature + field checks |
-| approval → chain | proposal | guardian signature | EIP-712 over the exact struct |
+| caller → approval service | an approve or reject request | the approver of record | bearer token resolved server side, or a passkey bound to an approver asserting over the exact decision |
+| approval → chain | proposal | guardian signature | EIP-712 over the exact struct, signed by the key the token's `guardian()` names |
 | audit → verifier | JSONL file | anchored root | hash chain + Merkle proof vs on-chain root |
 
 See [threat-model.md](threat-model.md) for the STRIDE analysis and residual
