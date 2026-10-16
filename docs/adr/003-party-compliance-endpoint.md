@@ -2,7 +2,7 @@
 
 ## Context
 
-FRONTEND.md milestone F2 requires the proposal detail drawer to show the
+`docs/history/overnight-build/FRONTEND.md` milestone F2 requires the proposal detail drawer to show the
 "compliance status of both parties". Compliance and freeze standing live
 on-chain (`ComplianceRegistry.isCompliant`, `GuardedToken.frozen`); no F0
 endpoint exposes them. The stack section resolves this tension explicitly:
