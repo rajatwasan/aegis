@@ -31,6 +31,8 @@ class ApiConfig(BaseModel):
     # how long a background agent run waits for a human before giving up
     approval_wait_seconds: float = 600.0
     approval_poll_seconds: float = 0.25
+    # anthropic mode: model turns per free text run before the run is stopped
+    agent_max_steps: int = 8
 
     @classmethod
     def from_env(cls) -> ApiConfig:
@@ -58,6 +60,7 @@ class ApiConfig(BaseModel):
             state_dir=state_dir,
             cors_origins=[o.strip() for o in cors.split(",")] if cors else DEFAULT_CORS_ORIGINS,
             evals_report_path=os.environ.get("AEGIS_EVALS_REPORT", "evals/report.md"),
+            agent_max_steps=int(os.environ.get("AEGIS_AGENT_MAX_STEPS", "8")),
         )
 
 

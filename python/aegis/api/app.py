@@ -55,6 +55,7 @@ from aegis.api.models import (
     VerifyResponse,
 )
 from aegis.approval.app import create_app
+from aegis.errors import ConfigError
 from aegis.events import EventBus
 
 _SSE_KEEPALIVE_SECONDS = 15.0
@@ -307,14 +308,20 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
             run = app.state.runner.start(body.instruction)
         except UnknownInstructionError as exc:
             raise HTTPException(400, str(exc)) from exc
-        except StateError as exc:
+        except (StateError, ConfigError) as exc:
             raise HTTPException(503, str(exc)) from exc
-        return AgentRunResponse(run_id=run.run_id, status=run.status, instruction=run.instruction)
+        return AgentRunResponse(
+            run_id=run.run_id, status=run.status, instruction=run.instruction, mode=run.mode
+        )
 
     @app.get("/agent/instructions", response_model=CannedInstructionsResponse)
     def get_canned_instructions() -> CannedInstructionsResponse:
+        try:
+            mode = app.state.runner.mode()
+        except ConfigError as exc:  # AEGIS_LLM names an unsupported provider
+            raise HTTPException(503, str(exc)) from exc
         return CannedInstructionsResponse(
-            instructions=[CannedInstruction(**c) for c in canned_instructions()]
+            mode=mode, instructions=[CannedInstruction(**c) for c in canned_instructions()]
         )
 
     return app

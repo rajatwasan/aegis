@@ -1,11 +1,13 @@
 """Background agent runs for POST /agent/run.
 
 Each run drives the M5 LangGraph agent in a worker thread, emitting an
-``agent.step`` event on the bus for every node the graph executes. With the
-default MockLLM, a small set of canned instructions maps to scripted tool
-plans so the whole loop works without any model key; when the graph escalates,
-the runner polls the approval store until a human resolves the proposal (the
-Guardian Console's approve button), then resumes the thread.
+``agent.step`` event on the bus for every node the graph executes. The
+provider comes from ``AEGIS_LLM`` (W3, decision D4): in ``mock`` mode a small
+set of canned instructions maps to scripted tool plans so the whole loop works
+without any model key and anything else is refused with a 400 that says so; in
+``anthropic`` mode any instruction is sent to the real model. Either way, when
+the graph escalates the runner polls the approval store until a human resolves
+the proposal (the Guardian Console's approve button), then resumes the thread.
 """
 
 from __future__ import annotations
@@ -20,10 +22,14 @@ from typing import Any
 from fastapi.testclient import TestClient
 from langgraph.types import Command
 
-from aegis.agent import AegisRuntime, ChainClient, MockLLM, build_graph
+from aegis.agent import AegisRuntime, ChainClient, LLMProvider, MockLLM, build_graph
+from aegis.agent.llm import MOCK_MODE, llm_mode, provider_from_env
 from aegis.anchoring import StateError
 from aegis.api.config import ApiConfig, load_chain_state
 from aegis.events import EventBus
+
+#: how many model turns a free text run may take before it is stopped (anthropic mode)
+DEFAULT_MAX_STEPS = 8
 
 # anvil's fixed dev accounts, matching the demo/dev deployment
 _ACCOUNTS = {
@@ -91,6 +97,7 @@ def _normalize(instruction: str) -> str:
 class AgentRun:
     run_id: str
     instruction: str
+    mode: str = MOCK_MODE
     status: str = "running"
     thread: threading.Thread | None = None
     results: list[dict[str, Any]] = field(default_factory=list)
@@ -139,21 +146,37 @@ class AgentRunner:
         runtime, _ = self._ensure_runtime()
         return runtime
 
-    def start(self, instruction: str) -> AgentRun:
-        """Validate the instruction, then run the agent in a worker thread."""
-        runtime, state = self._ensure_runtime()
-        plans = canned_plans(state["token_address"], runtime.chain.operator_address)
-        entry = plans.get(_normalize(instruction))
-        if entry is None:
-            known = ", ".join(f"'{_title(k)}'" for k in plans)
-            raise UnknownInstructionError(
-                f"the keyless MockLLM only understands the canned instructions: {known}"
-            )
+    @staticmethod
+    def mode() -> str:
+        return llm_mode()
 
-        run = AgentRun(run_id=str(uuid.uuid4()), instruction=instruction)
+    def start(self, instruction: str) -> AgentRun:
+        """Pick the provider for this run, validate the instruction, start the thread."""
+        runtime, state = self._ensure_runtime()
+        mode = llm_mode()
+        if mode == MOCK_MODE:
+            plans = canned_plans(state["token_address"], runtime.chain.operator_address)
+            entry = plans.get(_normalize(instruction))
+            if entry is None:
+                known = ", ".join(f"'{_title(k)}'" for k in plans)
+                raise UnknownInstructionError(
+                    "mock mode: the keyless MockLLM only understands the canned instructions: "
+                    f"{known} (set AEGIS_LLM=anthropic to run free text through a model)"
+                )
+            plan: list[dict[str, Any]] = list(entry["plan"])
+            provider: LLMProvider = MockLLM(script=plan)
+            slots = [f"{instruction} [step {i + 1}]" for i in range(len(plan))]
+            planned = len(plan)
+        else:
+            provider = provider_from_env()  # ConfigError if half configured (C9)
+            max_steps = int(self.config.agent_max_steps)
+            slots = [instruction] * max_steps
+            planned = None
+
+        run = AgentRun(run_id=str(uuid.uuid4()), instruction=instruction, mode=mode)
         self.runs[run.run_id] = run
         run.thread = threading.Thread(
-            target=self._run, args=(run, runtime, list(entry["plan"])), daemon=True
+            target=self._run, args=(run, runtime, provider, slots, planned), daemon=True
         )
         run.thread.start()
         return run
@@ -173,27 +196,41 @@ class AgentRunner:
             {"run_id": run.run_id, "instruction": run.instruction, "phase": phase, **data},
         )
 
-    def _run(self, run: AgentRun, runtime: AegisRuntime, plan: list[dict[str, Any]]) -> None:
+    def _run(
+        self,
+        run: AgentRun,
+        runtime: AegisRuntime,
+        provider: LLMProvider,
+        slots: list[str],
+        planned: int | None,
+    ) -> None:
         with self._lock:
             try:
-                self._drive(run, runtime, plan)
+                self._drive(run, runtime, provider, slots, planned)
                 run.status = "finished"
-            except Exception as exc:  # noqa: BLE001 - surfaced as an event
+            except Exception as exc:  # noqa: BLE001 - surfaced as an event, never guessed past
                 run.status = "failed"
                 run.error = str(exc)
                 self._step(run, "failed", error=str(exc))
                 return
             self._step(run, "finished", results=run.results)
 
-    def _drive(self, run: AgentRun, runtime: AegisRuntime, plan: list[dict[str, Any]]) -> None:
-        graph = build_graph(MockLLM(script=plan), runtime)
+    def _drive(
+        self,
+        run: AgentRun,
+        runtime: AegisRuntime,
+        provider: LLMProvider,
+        slots: list[str],
+        planned: int | None,
+    ) -> None:
+        graph = build_graph(provider, runtime)
         graph_config = {"configurable": {"thread_id": run.run_id}}
-        self._step(run, "started", steps_planned=len(plan))
+        if planned is None:
+            self._step(run, "started", mode=run.mode, max_steps=len(slots))
+        else:
+            self._step(run, "started", mode=run.mode, steps_planned=planned)
 
-        payload: Any = {
-            "instructions": [f"{run.instruction} [step {i + 1}]" for i in range(len(plan))],
-            "results": [],
-        }
+        payload: Any = {"instructions": slots, "results": []}
         while True:
             pending_decision: str | None = None
             for chunk in graph.stream(payload, graph_config, stream_mode="updates"):
@@ -241,4 +278,4 @@ class AgentRunner:
 
 
 class UnknownInstructionError(ValueError):
-    """The MockLLM has no scripted plan for this instruction."""
+    """Mock mode only: the MockLLM has no scripted plan for this instruction."""

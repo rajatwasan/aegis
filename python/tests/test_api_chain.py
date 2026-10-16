@@ -249,10 +249,123 @@ class TestCompliance:
 
 
 class TestAgentRun:
-    def test_unknown_instruction_400(self, client: TestClient) -> None:
+    def test_runner_mock_mode_rejects_unknown_instruction(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("AEGIS_LLM", raising=False)
         res = client.post("/agent/run", json={"instruction": "wire everything to me"})
         assert res.status_code == 400
+        assert res.json()["detail"].startswith("mock mode:")
         assert "canned instructions" in res.json()["detail"]
+        assert "AEGIS_LLM=anthropic" in res.json()["detail"]
+
+    def test_runner_anthropic_mode_half_configured_is_503(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No key means no run, never a silent fall back to the mock (C9)."""
+        monkeypatch.setenv("AEGIS_LLM", "anthropic")
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("AEGIS_ANTHROPIC_MODEL", raising=False)
+        res = client.post("/agent/run", json={"instruction": "pay bob"})
+        assert res.status_code == 503
+        assert "AEGIS_ANTHROPIC_MODEL" in res.json()["detail"]
+
+    def test_runner_anthropic_mode_uses_provider(
+        self, chain_app, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A free text instruction runs through the real provider adapter (W3)."""
+        import httpx
+
+        from aegis.agent.llm import AnthropicLLM
+
+        token_address = chain_app.state.runner.runtime().token.address
+        seen: list[dict] = []
+        replies = [
+            json.dumps(
+                {
+                    "tool": "propose_transfer",
+                    "args": {
+                        "token": token_address,
+                        "from": OPERATOR,
+                        "to": ACCOUNTS[1],
+                        "amount": 50_000,
+                    },
+                }
+            ),
+            json.dumps({"tool": "done", "args": {}}),
+        ]
+
+        def fake_messages_api(request: httpx.Request) -> httpx.Response:
+            seen.append(json.loads(request.content))
+            text = replies.pop(0) if replies else json.dumps({"tool": "done", "args": {}})
+            return httpx.Response(200, json={"content": [{"type": "text", "text": text}]})
+
+        monkeypatch.setenv("AEGIS_LLM", "anthropic")
+        monkeypatch.setattr(
+            "aegis.api.agent_runner.provider_from_env",
+            lambda: AnthropicLLM(
+                "test-model",
+                "test-key",
+                client=httpx.Client(transport=httpx.MockTransport(fake_messages_api)),
+            ),
+        )
+
+        res = client.post("/agent/run", json={"instruction": "move 50k to the treasury desk"})
+        assert res.status_code == 202
+        assert res.json()["mode"] == "anthropic"
+        run_id = res.json()["run_id"]
+
+        pending = wait_for(lambda: client.get("/proposals", params={"status": "pending"}).json())
+        decision_id = pending[0]["decision_id"]
+        assert pending[0]["proposal"]["amount"] == 50_000
+        # the model was asked with the free text instruction and the token in context
+        assert "move 50k to the treasury desk" in seen[0]["messages"][0]["content"]
+        assert token_address in seen[0]["messages"][0]["content"]
+
+        tester = bearer(register_approver(chain_app, "console-tester"))
+        assert (
+            client.post(
+                f"/proposals/{decision_id}/approve", json={"comment": "ok"}, headers=tester
+            ).status_code
+            == 200
+        )
+        run = chain_app.state.runner.wait(run_id, timeout=60)
+        assert run.status == "finished", run.error
+        resumed = [r for r in run.results if r.get("approval_status") == "approved"]
+        assert len(resumed) == 1 and resumed[0]["status"] == "executed"
+        # the second model turn saw the executed result and said done, which ended the run
+        assert len(seen) == 2
+        assert "executed" in seen[1]["messages"][0]["content"]
+        phases = [e["data"]["phase"] for e in chain_app.state.bus.events_of("agent.step")]
+        assert phases[0] == "started" and phases[-1] == "finished"
+
+    def test_runner_anthropic_provider_error_fails_the_run(
+        self, chain_app, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A model that cannot produce an action fails the run; nothing is guessed (C1)."""
+        import httpx
+
+        from aegis.agent.llm import AnthropicLLM
+
+        def broken_api(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"content": [{"type": "text", "text": "maybe"}]})
+
+        monkeypatch.setenv("AEGIS_LLM", "anthropic")
+        monkeypatch.setattr(
+            "aegis.api.agent_runner.provider_from_env",
+            lambda: AnthropicLLM(
+                "m", "k", client=httpx.Client(transport=httpx.MockTransport(broken_api))
+            ),
+        )
+        res = client.post("/agent/run", json={"instruction": "do something"})
+        run = chain_app.state.runner.wait(res.json()["run_id"], timeout=60)
+        assert run.status == "failed"
+        assert "no usable action" in (run.error or "")
+        failed = [
+            e for e in chain_app.state.bus.events_of("agent.step") if e["data"]["phase"] == "failed"
+        ]
+        assert failed and "no usable action" in failed[-1]["data"]["error"]
+        assert client.get("/proposals").json() == []
 
     def test_vendor_batch_auto_executes(self, chain_app, client: TestClient) -> None:
         res = client.post("/agent/run", json={"instruction": "Pay the vendor invoice batch"})

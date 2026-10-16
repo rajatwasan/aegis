@@ -324,6 +324,8 @@ export interface components {
     AgentRunResponse: {
       /** Instruction */
       instruction: string;
+      /** Mode */
+      mode: string;
       /** Run Id */
       run_id: string;
       /** Status */
@@ -434,6 +436,8 @@ export interface components {
     CannedInstructionsResponse: {
       /** Instructions */
       instructions: components["schemas"]["CannedInstruction"][];
+      /** Mode */
+      mode: string;
     };
     /** ChainStatus */
     ChainStatus: {

@@ -33,6 +33,10 @@
             "title": "Instruction",
             "type": "string"
           },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
           "run_id": {
             "title": "Run Id",
             "type": "string"
@@ -45,7 +49,8 @@
         "required": [
           "run_id",
           "status",
-          "instruction"
+          "instruction",
+          "mode"
         ],
         "title": "AgentRunResponse",
         "type": "object"
@@ -358,9 +363,14 @@
             },
             "title": "Instructions",
             "type": "array"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
           }
         },
         "required": [
+          "mode",
           "instructions"
         ],
         "title": "CannedInstructionsResponse",

@@ -97,8 +97,9 @@ LLM proposal ─► typed tools ─► policy engine ─► ALLOW  ─► transf
   resolves to.
 - **Agent** (`python/aegis/agent/`): a LangGraph graph (supervisor → gate →
   execute | interrupt → resume) with a typed tool registry and pluggable LLM
-  providers — `MockLLM` (deterministic, used everywhere in CI) and the optional
-  `AnthropicLLM`.
+  providers — `MockLLM` (deterministic, used everywhere in CI) and
+  `AnthropicLLM` (selected by `AEGIS_LLM=anthropic`; a malformed model reply is
+  retried once, then the run fails rather than guessing).
 - **MCP server** (`python/aegis/mcpserver/`): a stdio MCP server exposing
   `propose_transfer`, `get_proposal_status`, `list_pending`, `get_audit_proof`
   through the *same* gate, so MCP clients get no side-door.
@@ -124,10 +125,13 @@ progress, and approve/reject with a required comment. `j`/`k` walk the queue,
 
 ![Approvals queue with the decision drawer](docs/screenshots/approvals.png)
 
-**Console** — the full loop on one screen: a canned instruction runs the real
-LangGraph agent (keyless MockLLM), its steps stream in on the left, the
-escalation appears on the right with inline approve, and the resumed
-execution streams back.
+**Console** — the full loop on one screen: an instruction runs the LangGraph
+agent, its steps stream in on the left, the escalation appears on the right
+with inline approve, and the resumed execution streams back. The header says
+which provider is driving: `mock (scripted)` by default, where only the three
+canned instructions run and anything else is refused, or `anthropic` when
+`AEGIS_LLM=anthropic` with a model id and key, where free text goes through the
+real model and the chips are examples.
 
 ![Command console mid-run](docs/screenshots/console.png)
 

@@ -175,6 +175,32 @@ describe("ConsolePage", () => {
     );
   });
 
+  it("labels the scripted mock agent", async () => {
+    renderConsole();
+    expect(await screen.findByTestId("agent-mode")).toHaveTextContent(
+      "mock (scripted)",
+    );
+    expect(screen.queryByText("examples:")).toBeNull();
+  });
+
+  it("labels the real provider and demotes the chips to examples", async () => {
+    server.use(
+      http.get(`${API_URL}/agent/instructions`, () =>
+        HttpResponse.json({
+          mode: "anthropic",
+          instructions: [
+            { instruction: "Pay the vendor invoice batch", description: "x" },
+          ],
+        }),
+      ),
+    );
+    renderConsole();
+    expect(await screen.findByTestId("agent-mode")).toHaveTextContent(
+      "anthropic",
+    );
+    expect(screen.getByText("examples:")).toBeInTheDocument();
+  });
+
   it("surfaces an unknown-instruction error from the API", async () => {
     server.use(
       http.post(`${API_URL}/agent/run`, () =>
