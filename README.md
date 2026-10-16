@@ -159,7 +159,10 @@ executed transfer → PROOF OK.
   signer is the token's on chain `guardian()` and refuses to start otherwise.
 - **Deterministic gate.** Policy decisions are a pure function of proposal +
   on-chain context + a hashed policy file — reproducible, testable, and bound
-  into each authorization via `policyHash`.
+  into each authorization via `policyHash`. The per sender daily budget behind
+  `within_daily_limit` is read back from the signed audit log over a rolling
+  window (`AEGIS_DAILY_WINDOW_SECONDS`, default 24h), so a restart cannot reset
+  it and the window actually rolls.
 - **Fail closed.** No approval (rejected or TTL-expired) means no signature means
   nothing moves. Safety over liveness.
 - **Provable history.** Every decision is signed, hash-chained, and anchored;

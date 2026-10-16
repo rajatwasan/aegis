@@ -13,6 +13,7 @@ from typing import Any
 import httpx
 
 from aegis.agent.chain import ChainClient
+from aegis.agent.spend import SpendLedger, window_seconds_from_env
 from aegis.audit import AuditLog
 from aegis.policy import Context, Decision, Effect, Operation, Policy, Proposal, evaluate
 
@@ -27,6 +28,7 @@ class AegisRuntime:
         token: Any,
         registry: Any,
         approval_client: httpx.Client,
+        spend: SpendLedger | None = None,
     ) -> None:
         self.policy = policy
         self.audit = audit
@@ -34,7 +36,8 @@ class AegisRuntime:
         self.token = token
         self.registry = registry
         self.approval = approval_client
-        self.daily_spent: dict[str, int] = {}
+        # spend is read back from the audit log, never kept in memory (W4, C7)
+        self.spend = spend or SpendLedger(audit, window_seconds_from_env())
 
     # ------------------------------------------------------------- read tools
 
@@ -55,7 +58,11 @@ class AegisRuntime:
         parties = {proposal.from_addr, proposal.to}
         compliant = {p for p in parties if self.check_compliance(p)}
         frozen = {p for p in parties if self.is_frozen(p)}
-        return Context(compliant=compliant, frozen=frozen, daily_spent=dict(self.daily_spent))
+        return Context(
+            compliant=compliant,
+            frozen=frozen,
+            daily_spent=self.spend.spent_for({proposal.from_addr}),
+        )
 
     def decide(self, proposal: Proposal) -> Decision:
         return evaluate(proposal, self.build_context(proposal), self.policy)
@@ -73,9 +80,7 @@ class AegisRuntime:
 
         if decision.effect == Effect.ALLOW:
             receipt = self.chain.transfer(self.token, proposal.to, proposal.amount)
-            self.daily_spent[proposal.from_addr] = (
-                self.daily_spent.get(proposal.from_addr, 0) + proposal.amount
-            )
+            # the audit record written below is what charges the sender's window
             result["tx_hash"] = receipt["transactionHash"].hex()
             result["status"] = "executed"
             self._audit("agent", result)

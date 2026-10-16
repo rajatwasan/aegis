@@ -198,6 +198,7 @@ export function makePolicy(
     policy_hash: "ab".repeat(32),
     version: 1,
     default: "escalate",
+    daily_window_seconds: 86_400,
     allowlist: [ALICE.toLowerCase()],
     rules: [
       {

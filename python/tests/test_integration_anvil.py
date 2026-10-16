@@ -5,6 +5,7 @@ approved via the API -> guardian signature -> executed. A 6th transfer to a
 frozen address is denied. Every decision lands in the audit log.
 """
 
+import time
 from pathlib import Path
 
 import pytest
@@ -12,9 +13,10 @@ from fastapi.testclient import TestClient
 from langgraph.types import Command
 
 from aegis.agent import AegisRuntime, MockLLM, build_graph
+from aegis.agent.spend import SpendLedger
 from aegis.approval import ApprovalConfig, create_app
 from aegis.audit import AuditLog, AuditSigner
-from aegis.policy import load_policy
+from aegis.policy import Operation, Proposal, load_policy
 from tests.conftest import (
     ACCOUNTS,
     FROZEN_ACCOUNT,
@@ -171,3 +173,63 @@ def test_direct_bypass_attempt_reverts_on_chain(stack) -> None:
     chain = stack["runtime"].chain
     with pytest.raises(RuntimeError, match="reverted"):
         chain.transfer(token, ACCOUNTS[1], 50_000)  # above threshold, no authorization
+
+
+# --------------------------------------------------------------------------- #
+# W4: the daily limit is read back from the audit log, so it survives a restart
+# and rolls with the clock (AGENTS.md C7)
+# --------------------------------------------------------------------------- #
+
+
+def _proposal(token: str, amount: int) -> Proposal:
+    return Proposal(
+        operation=Operation.TRANSFER, token=token, from_addr=OPERATOR, to=ACCOUNTS[1], amount=amount
+    )
+
+
+def _fresh_runtime(stack, clock) -> AegisRuntime:
+    """A new runtime object over the SAME audit log: what a restart looks like."""
+    old = stack["runtime"]
+    return AegisRuntime(
+        policy=old.policy,
+        audit=old.audit,
+        chain=old.chain,
+        token=old.token,
+        registry=old.registry,
+        approval_client=old.approval,
+        spend=SpendLedger(old.audit, window_seconds=86_400, clock=clock),
+    )
+
+
+def test_runtime_limit_survives_restart(stack) -> None:
+    token = stack["token"]
+    # a live clock with an adjustable offset: records land in the past, as in production
+    skew = {"seconds": 0.0}
+    runtime = _fresh_runtime(stack, lambda: time.time() + skew["seconds"])
+
+    # policy: allow <= 10,000 per transfer within a 50,000 per sender window
+    for _ in range(5):
+        assert runtime.handle(_proposal(token.address, 10_000))["status"] == "executed"
+    assert runtime.spend.spent_by(OPERATOR) == 50_000
+
+    # a brand new runtime over the same log still sees the 50,000
+    restarted = _fresh_runtime(stack, lambda: time.time() + skew["seconds"])
+    assert restarted.spend.spent_by(OPERATOR) == 50_000
+    outcome = restarted.handle(_proposal(token.address, 10_000))
+    assert outcome["status"] == "pending_approval"  # over the window budget: escalated
+    assert (
+        outcome["matched_rules"] == ["escalate-large-transfer"] or outcome["effect"] == "escalate"
+    )
+
+
+def test_runtime_limit_rolls_after_window(stack) -> None:
+    token = stack["token"]
+    skew = {"seconds": 0.0}
+    runtime = _fresh_runtime(stack, lambda: time.time() + skew["seconds"])
+    for _ in range(5):
+        assert runtime.handle(_proposal(token.address, 10_000))["status"] == "executed"
+    assert runtime.handle(_proposal(token.address, 10_000))["status"] == "pending_approval"
+
+    skew["seconds"] += 86_400 + 1  # the window has rolled past every record above
+    assert runtime.spend.spent_by(OPERATOR) == 0
+    assert runtime.handle(_proposal(token.address, 10_000))["status"] == "executed"

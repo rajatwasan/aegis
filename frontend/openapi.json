@@ -723,6 +723,10 @@
             "title": "Allowlist",
             "type": "array"
           },
+          "daily_window_seconds": {
+            "title": "Daily Window Seconds",
+            "type": "integer"
+          },
           "default": {
             "title": "Default",
             "type": "string"
@@ -753,7 +757,8 @@
           "version",
           "default",
           "allowlist",
-          "rules"
+          "rules",
+          "daily_window_seconds"
         ],
         "title": "PolicyResponse",
         "type": "object"
