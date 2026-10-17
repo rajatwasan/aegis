@@ -116,7 +116,10 @@ class AgentRunner:
                 f"no chain state at {self.config.state_dir}/state.json;"
                 " start the dev stack (make dev) or run scripts/demo.sh first"
             )
-        chain = ChainClient(state["rpc_url"], state["operator_key"])
+        if self.config.operator_key is None:
+            raise StateError("no operator key configured; set AEGIS_OPERATOR_KEY")
+        chain = ChainClient(state["rpc_url"], self.config.operator_key)
+        check_operator_matches(chain, state)
         token = chain.at("GuardedToken", state["token_address"])
         check_guardian_matches(token, self.app.state.signer.address)
         self._runtime = AegisRuntime(
@@ -240,6 +243,20 @@ class AgentRunner:
 
 class UnknownInstructionError(ValueError):
     """The MockLLM has no scripted plan for this instruction."""
+
+
+def check_operator_matches(chain: ChainClient, state: dict[str, Any]) -> None:
+    """Refuse an operator key that is not the operator state.json records.
+
+    The recorded operator owns the registry, holds the supply and has
+    ANCHOR_ROLE; a different key would fail every write with an opaque revert.
+    """
+    recorded = state.get("operator_address")
+    if recorded and recorded.lower() != chain.operator_address.lower():
+        raise StateError(
+            f"operator key mismatch: AEGIS_OPERATOR_KEY derives {chain.operator_address} but"
+            f" state.json records operator {recorded}"
+        )
 
 
 def check_guardian_matches(token: Any, signer_address: str) -> None:

@@ -31,7 +31,7 @@ def _seed_state(deployment, tmp_path: Path) -> tuple[dict, list[dict]]:
     state = {
         "rpc_url": deployment["rpc_url"],
         "chain_id": 31337,
-        "operator_key": KEYS[0],
+        "operator_address": OPERATOR,
         "anchor_address": anchor.address,
         "token_address": deployment["token"].address,
         "registry_address": deployment["registry"].address,
@@ -86,3 +86,35 @@ def test_verify_without_anchor_reports(deployment, tmp_path: Path, capsys) -> No
     _seed_state(deployment, tmp_path)
     assert cli.cmd_verify(tmp_path, "whatever", verify_all=False) == 1
     assert "run `aegis anchor` first" in capsys.readouterr().out
+
+
+def test_anchor_reads_operator_key_from_env(
+    deployment, tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """W2: the anchoring key comes from the environment, never from state.json."""
+    from tests.helpers import fresh_key
+
+    _seed_state(deployment, tmp_path)
+    # a key that is not the recorded operator is refused before any transaction
+    monkeypatch.setenv("AEGIS_OPERATOR_KEY", fresh_key())
+    assert cli.main(["--state-dir", str(tmp_path), "anchor"]) == 2
+    assert "operator key mismatch" in capsys.readouterr().err
+    assert not (tmp_path / "anchors.json").exists()
+
+    # the recorded operator's key anchors
+    monkeypatch.setenv("AEGIS_OPERATOR_KEY", KEYS[0])
+    assert cli.main(["--state-dir", str(tmp_path), "anchor"]) == 0
+    assert len(json.loads((tmp_path / "anchors.json").read_text())) == 1
+
+
+def test_verify_needs_no_key(deployment, tmp_path: Path, monkeypatch, capsys) -> None:
+    """W2: proofs are checked read-only; a third party holds no secret."""
+    _, records = _seed_state(deployment, tmp_path)
+    monkeypatch.setenv("AEGIS_OPERATOR_KEY", KEYS[0])
+    assert cli.cmd_anchor(tmp_path) == 0
+    monkeypatch.delenv("AEGIS_OPERATOR_KEY")
+    monkeypatch.setenv(
+        "AEGIS_CHAIN_ID", "84532"
+    )  # even a public chain id: verify never resolves a key
+    assert cli.cmd_verify(tmp_path, records[0]["decision_id"], verify_all=False) == 0
+    assert "PROOF OK" in capsys.readouterr().out

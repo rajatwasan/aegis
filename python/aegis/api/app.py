@@ -177,8 +177,10 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
 
     @app.post("/anchor", response_model=AnchorResponse)
     def anchor_records() -> AnchorResponse:
+        if config.operator_key is None:
+            raise HTTPException(503, "no operator key configured; set AEGIS_OPERATOR_KEY")
         try:
-            batch = anchoring.anchor_unanchored(state_dir)
+            batch = anchoring.anchor_unanchored(state_dir, config.operator_key)
         except StateError as exc:
             raise HTTPException(503, str(exc)) from exc
         if batch is None:

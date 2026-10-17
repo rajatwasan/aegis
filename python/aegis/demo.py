@@ -22,12 +22,13 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from langgraph.types import Command
+from web3 import Web3
 
 from aegis import devchain
 from aegis.agent import AegisRuntime, ChainClient, MockLLM, build_graph
 from aegis.approval import ApprovalConfig, GuardianSigner, build_authorization, create_app
-from aegis.approval.config import guardian_key_from_env
 from aegis.audit import AuditLog, AuditSigner
+from aegis.keys import guardian_key_from_env, operator_key_from_env
 from aegis.policy import load_policy
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -135,8 +136,9 @@ def _transfer(token_addr: str, to: str, amount: int) -> dict[str, Any]:
 def run(rpc_url: str, state_dir: Path) -> int:
     state_dir.mkdir(parents=True, exist_ok=True)
     _rule("[1/5] Deploying the Aegis suite on anvil")
-    chain = ChainClient(rpc_url, KEYS[devchain.OPERATOR_INDEX])
-    chain_id = chain.w3.eth.chain_id
+    probe = Web3(Web3.HTTPProvider(rpc_url))
+    chain_id = int(probe.eth.chain_id)
+    chain = ChainClient(rpc_url, operator_key_from_env(chain_id))
     guardian_key = guardian_key_from_env(chain_id)
     guardian = GuardianSigner(guardian_key, chain_id)
     deployment = deploy(chain, guardian=guardian, chain_id=chain_id)
@@ -209,7 +211,7 @@ def run(rpc_url: str, state_dir: Path) -> int:
     state_json = {
         "rpc_url": rpc_url,
         "chain_id": chain_id,
-        "operator_key": KEYS[devchain.OPERATOR_INDEX],
+        "operator_address": chain.operator_address,
         "guardian": guardian.address,
         "anchor_address": deployment["anchor"].address,
         "token_address": token.address,

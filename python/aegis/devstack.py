@@ -130,7 +130,6 @@ def run(
         "chain_name": meta.name,
         "explorer_url": meta.explorer_url,
         "public": meta.public,
-        "operator_key": operator_key,
         "operator_address": operator,
         "guardian": guardian.address,
         "anchor_address": deployment["anchor"].address,
@@ -158,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--operator-key",
-        default=os.environ.get("AEGIS_DEPLOYER_KEY"),
+        default=os.environ.get("AEGIS_OPERATOR_KEY") or os.environ.get("AEGIS_DEPLOYER_KEY"),
         help="funded key that deploys and sends anchors (anvil account 0 on a dev chain)",
     )
     parser.add_argument(

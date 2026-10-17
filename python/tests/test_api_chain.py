@@ -29,7 +29,7 @@ def chain_app(deployment, tmp_path: Path):
     state = {
         "rpc_url": deployment["rpc_url"],
         "chain_id": 31337,
-        "operator_key": KEYS[0],
+        "operator_address": OPERATOR,
         "anchor_address": anchor.address,
         "token_address": deployment["token"].address,
         "registry_address": deployment["registry"].address,
@@ -45,6 +45,7 @@ def chain_app(deployment, tmp_path: Path):
             policy_path=str(POLICY_PATH),
             guardian_key=KEYS[9],
         ),
+        operator_key=KEYS[0],
         state_dir=str(tmp_path),
         evals_report_path=str(tmp_path / "none.md"),
         approval_wait_seconds=30.0,
@@ -76,7 +77,7 @@ class TestGuardianIntegrity:
         state = {
             "rpc_url": deployment["rpc_url"],
             "chain_id": 31337,
-            "operator_key": KEYS[0],
+            "operator_address": OPERATOR,
             "anchor_address": anchor.address,
             "token_address": deployment["token"].address,
             "registry_address": deployment["registry"].address,
@@ -93,6 +94,7 @@ class TestGuardianIntegrity:
                     policy_path=str(POLICY_PATH),
                     guardian_key=other_key,
                 ),
+                operator_key=KEYS[0],
                 state_dir=str(tmp_path),
                 evals_report_path=str(tmp_path / "none.md"),
             )
@@ -111,6 +113,86 @@ class TestGuardianIntegrity:
         assert "guardian key mismatch" in res.json()["detail"]
         standing = client.get(f"/compliance/{ACCOUNTS[1]}").json()
         assert standing["known"] is False
+
+    def test_state_json_with_private_key_is_refused(self, deployment, tmp_path: Path) -> None:
+        """W2: a state file carrying operator_key never loads."""
+        from aegis.config import ConfigError
+        from aegis.state import load_chain_state
+
+        (tmp_path / "state.json").write_text(
+            json.dumps({"rpc_url": deployment["rpc_url"], "chain_id": 31337, "operator_key": "0x"})
+        )
+        with pytest.raises(ConfigError) as excinfo:
+            load_chain_state(tmp_path)
+        assert "operator_key" in str(excinfo.value)
+        assert "AEGIS_OPERATOR_KEY" in str(excinfo.value)
+
+    def test_operator_key_mismatch_refused(self, deployment, tmp_path: Path) -> None:
+        """W2: the configured operator must be the one state.json records."""
+        from aegis.anchoring import StateError
+
+        anchor = deployment["chain"].deploy("AuditAnchor", OPERATOR)
+        state = {
+            "rpc_url": deployment["rpc_url"],
+            "chain_id": 31337,
+            "operator_address": ACCOUNTS[3],  # not the account KEYS[0] derives
+            "anchor_address": anchor.address,
+            "token_address": deployment["token"].address,
+            "registry_address": deployment["registry"].address,
+            "audit_log_path": str(tmp_path / "audit.jsonl"),
+            "audit_key_file": str(tmp_path / "audit.key"),
+        }
+        (tmp_path / "state.json").write_text(json.dumps(state))
+        app = create_api_app(
+            ApiConfig(
+                approval=ApprovalConfig(
+                    db_path=str(tmp_path / "approvals.db"),
+                    audit_log_path=str(tmp_path / "audit.jsonl"),
+                    audit_key_file=str(tmp_path / "audit.key"),
+                    policy_path=str(POLICY_PATH),
+                    guardian_key=KEYS[9],
+                ),
+                operator_key=KEYS[0],
+                state_dir=str(tmp_path),
+                evals_report_path=str(tmp_path / "none.md"),
+            )
+        )
+        with pytest.raises(StateError, match="operator key mismatch"):
+            app.state.runner.runtime()
+        res = TestClient(app).post("/anchor")
+        assert res.status_code == 503
+        assert "operator key mismatch" in res.json()["detail"]
+
+    def test_anchor_without_operator_key_is_503(self, deployment, tmp_path: Path) -> None:
+        """W2: no key configured means no anchoring, said plainly."""
+        anchor = deployment["chain"].deploy("AuditAnchor", OPERATOR)
+        state = {
+            "rpc_url": deployment["rpc_url"],
+            "chain_id": 31337,
+            "operator_address": OPERATOR,
+            "anchor_address": anchor.address,
+            "token_address": deployment["token"].address,
+            "registry_address": deployment["registry"].address,
+            "audit_log_path": str(tmp_path / "audit.jsonl"),
+            "audit_key_file": str(tmp_path / "audit.key"),
+        }
+        (tmp_path / "state.json").write_text(json.dumps(state))
+        app = create_api_app(
+            ApiConfig(
+                approval=ApprovalConfig(
+                    db_path=str(tmp_path / "approvals.db"),
+                    audit_log_path=str(tmp_path / "audit.jsonl"),
+                    audit_key_file=str(tmp_path / "audit.key"),
+                    policy_path=str(POLICY_PATH),
+                    guardian_key=KEYS[9],
+                ),
+                state_dir=str(tmp_path),
+                evals_report_path=str(tmp_path / "none.md"),
+            )
+        )
+        res = TestClient(app).post("/anchor")
+        assert res.status_code == 503
+        assert "AEGIS_OPERATOR_KEY" in res.json()["detail"]
 
 
 def seed_records(app, n: int = 3) -> list[dict]:

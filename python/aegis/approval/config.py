@@ -3,44 +3,21 @@
 There is no default guardian key. ``from_env`` requires ``AEGIS_GUARDIAN_KEY``
 and refuses a publicly known anvil key unless the target chain is a dev chain,
 where the anvil key is substituted and announced once (SPEC.md section 5,
-AGENTS.md R2 and R3).
+AGENTS.md R2 and R3). Resolution lives in :mod:`aegis.keys`.
 """
 
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 from pydantic import BaseModel, field_validator, model_validator
 
 from aegis import devchain
-from aegis.config import ConfigError, env_flag, optional_env, validate_hex_key
+from aegis.config import env_flag, validate_hex_key
+from aegis.keys import guardian_key_from_env
 
-
-def guardian_key_from_env(chain_id: int) -> str:
-    """Resolve the guardian key for ``chain_id`` from ``AEGIS_GUARDIAN_KEY``.
-
-    Explicit value: validated and refused if it is a dev key on a public chain.
-    Unset on a dev chain: the anvil dev guardian key, announced on stderr.
-    Unset on a public chain: :class:`ConfigError`.
-    """
-    explicit = optional_env("AEGIS_GUARDIAN_KEY")
-    if explicit is not None:
-        explicit = validate_hex_key(explicit, "AEGIS_GUARDIAN_KEY")
-    try:
-        key = devchain.resolve_key(
-            explicit, role="guardian", chain_id=chain_id, dev_key=devchain.dev_guardian_key()
-        )
-    except ConfigError as exc:
-        raise ConfigError(f"AEGIS_GUARDIAN_KEY: {exc}") from exc
-    if explicit is None:
-        print(
-            f"notice: AEGIS_GUARDIAN_KEY unset; using the anvil dev guardian key"
-            f" because chain {chain_id} is a dev chain",
-            file=sys.stderr,
-        )
-    return key
+__all__ = ["ApprovalConfig", "guardian_key_from_env"]
 
 
 class ApprovalConfig(BaseModel):

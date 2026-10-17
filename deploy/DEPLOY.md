@@ -31,7 +31,7 @@ is the authoritative list; the ones a deployment needs today:
 | Variable | Purpose | Notes |
 | --- | --- | --- |
 | `AEGIS_RPC_URL` | chain the API deploys to and anchors on | `https://sepolia.base.org` for Base Sepolia |
-| `AEGIS_DEPLOYER_KEY` | funded key that deploys the suite and pays for anchors | throwaway testnet key; never a key that holds value |
+| `AEGIS_OPERATOR_KEY` (alias `AEGIS_DEPLOYER_KEY`) | funded key that deploys the suite, performs the agent's plain transfers and pays for anchors | throwaway testnet key; never a key that holds value; read from the environment only, never from `state.json` |
 | `AEGIS_GUARDIAN_KEY` | the guardian signing key held by the approval service | generate one (below); never reuse the deployer key |
 | `AEGIS_CORS_ORIGINS` | the console origin(s), comma separated | the static host's URL |
 | `AEGIS_STATE_DIR` | where `state.json`, the audit log and anchors live | `/data/aegis`, on the persistent volume |
@@ -133,6 +133,17 @@ server.
 redeploys a previous image. State on the volume is forward compatible within a
 major version of the state file; a rollback across a `state.json` shape change
 needs the migration note of the release that changed it.
+
+### Migration notes
+
+- **Operator key out of `state.json`.** Earlier revisions wrote the deployer's
+  private key into `/data/aegis/state.json` as `operator_key`. The loader now
+  refuses a state file that contains it. On an existing volume: set the secret
+  (`fly secrets set AEGIS_OPERATOR_KEY=0x...`, or keep `AEGIS_DEPLOYER_KEY`,
+  which is accepted as an alias), then remove the field, for example with
+  `fly ssh console -C "python -c \"import json;p='/data/aegis/state.json';s=json.load(open(p));k=s.pop('operator_key');s['operator_address']=s.get('operator_address') or __import__('eth_account').Account.from_key(k).address;json.dump(s,open(p,'w'),indent=2)\""`.
+  The API refuses to start until the field is gone, and refuses a key that
+  does not derive to the recorded `operator_address`.
 
 ## 8. Fallbacks when the build host misbehaves
 

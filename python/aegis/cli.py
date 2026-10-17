@@ -27,6 +27,8 @@ from typing import Any
 
 from aegis import anchoring
 from aegis.anchoring import StateError
+from aegis.config import ConfigError
+from aegis.keys import operator_key_from_env
 
 DEFAULT_STATE_DIR = os.environ.get("AEGIS_STATE_DIR", ".aegis/demo")
 
@@ -37,7 +39,9 @@ DEFAULT_STATE_DIR = os.environ.get("AEGIS_STATE_DIR", ".aegis/demo")
 
 
 def cmd_anchor(state_dir: Path) -> int:
-    batch = anchoring.anchor_unanchored(state_dir)
+    state = anchoring.load_state(state_dir)
+    operator_key = operator_key_from_env(state.get("chain_id"))
+    batch = anchoring.anchor_unanchored(state_dir, operator_key)
     if batch is None:
         print("nothing to anchor: all audit records are already anchored")
         return 0
@@ -77,7 +81,7 @@ def cmd_verify(state_dir: Path, decision_id: str | None, verify_all: bool) -> in
         return 1
 
     records_by_id = {r["decision_id"]: r for r in anchoring.load_records(state)}
-    _, contract = anchoring.anchor_contract(state)
+    contract = anchoring.anchor_reader(state)
 
     if verify_all:
         ids = [did for batch in anchors for did in batch["decision_ids"]]
@@ -125,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_anchor(state_dir)
         if args.command == "verify":
             return cmd_verify(state_dir, args.decision_id, args.all)
-    except StateError as exc:
+    except (StateError, ConfigError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     return 2

@@ -17,10 +17,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from web3 import Web3
+
 from aegis import chains
 from aegis.agent import ChainClient
+from aegis.agent.chain import load_artifact
 from aegis.audit import AuditLog, AuditSigner, MerkleTree, canonical_json
 from aegis.audit.log import _hash_record
+from aegis.config import ConfigError
+from aegis.state import load_chain_state
 
 
 class StateError(RuntimeError):
@@ -31,7 +36,12 @@ def load_state(state_dir: Path) -> dict[str, Any]:
     path = state_dir / "state.json"
     if not path.exists():
         raise StateError(f"no state at {path}; run the demo (scripts/demo.sh) first")
-    return json.loads(path.read_text())
+    try:
+        state = load_chain_state(state_dir)
+    except ConfigError as exc:
+        raise StateError(str(exc)) from exc
+    assert state is not None
+    return state
 
 
 def load_anchors(state_dir: Path) -> list[dict[str, Any]]:
@@ -48,18 +58,41 @@ def load_records(state: dict[str, Any]) -> list[dict[str, Any]]:
     return AuditLog(state["audit_log_path"], signer).records()
 
 
-def anchor_contract(state: dict[str, Any]) -> tuple[ChainClient, Any]:
-    chain = ChainClient(state["rpc_url"], state["operator_key"])
+def anchor_reader(state: dict[str, Any]) -> Any:
+    """Read-only handle on AuditAnchor. Verification needs no key at all."""
+    w3 = Web3(Web3.HTTPProvider(state["rpc_url"]))
+    return w3.eth.contract(
+        address=Web3.to_checksum_address(state["anchor_address"]),
+        abi=load_artifact("AuditAnchor")["abi"],
+    )
+
+
+def anchor_contract(state: dict[str, Any], operator_key: str) -> tuple[ChainClient, Any]:
+    """Signing handle on AuditAnchor for ``operator_key`` (anchoring only).
+
+    The key must derive to the operator recorded in ``state.json``; a wrong key
+    would pay for anchors from an account that holds neither ANCHOR_ROLE nor
+    the recorded history, so refuse early and name both addresses.
+    """
+    chain = ChainClient(state["rpc_url"], operator_key)
+    recorded = state.get("operator_address")
+    if recorded and recorded.lower() != chain.operator_address.lower():
+        raise StateError(
+            f"operator key mismatch: AEGIS_OPERATOR_KEY derives {chain.operator_address} but"
+            f" state.json records operator {recorded}"
+        )
     return chain, chain.at("AuditAnchor", state["anchor_address"])
 
 
-def anchor_unanchored(state_dir: Path) -> dict[str, Any] | None:
+def anchor_unanchored(state_dir: Path, operator_key: str) -> dict[str, Any] | None:
     """Anchor every not-yet-anchored audit record as one batch.
 
     Returns the new batch (batch_id, root, tx_hash, decision_ids) or None when
     every record is already anchored.
     """
     state = load_state(state_dir)
+    # a wrong key is refused before any work, with or without records to anchor
+    chain, contract = anchor_contract(state, operator_key)
     records = load_records(state)
     anchors = load_anchors(state_dir)
 
@@ -70,7 +103,6 @@ def anchor_unanchored(state_dir: Path) -> dict[str, Any] | None:
 
     tree = MerkleTree([canonical_json(r) for r in fresh])
     batch_id = len(anchors)
-    chain, contract = anchor_contract(state)
     receipt = chain.call_tx(contract.functions.anchor(tree.root, batch_id))
 
     # keep the coordinates a third party needs to find this tx again: which
@@ -196,7 +228,7 @@ def verify_decision_in_dir(state_dir: Path, decision_id: str) -> dict[str, Any]:
     if batch is None:
         record = records_by_id.get(decision_id)
         return _fail(decision_id, "not in any anchored batch", record=record, anchor=None)
-    _, contract = anchor_contract(state)
+    contract = anchor_reader(state)
     result = verify_decision(anchors, contract, records_by_id, decision_id)
     result["anchor"] = batch_view(state, batch)
     return result

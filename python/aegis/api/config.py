@@ -11,15 +11,15 @@ The guardian key comes from ``AEGIS_GUARDIAN_KEY`` through
 
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, Field
 
-from aegis.approval.config import ApprovalConfig, guardian_key_from_env
+from aegis.approval.config import ApprovalConfig
 from aegis.config import env_flag
+from aegis.keys import guardian_key_from_env, operator_key_from_env
+from aegis.state import load_chain_state
 
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:5173",
@@ -29,6 +29,9 @@ DEFAULT_CORS_ORIGINS = [
 
 class ApiConfig(BaseModel):
     approval: ApprovalConfig
+    #: signs the agent's plain transfers and pays for anchors; required once a
+    #: chain is configured (state.json exists), never read from state.json
+    operator_key: str | None = None
     state_dir: str = ".aegis/demo"
     cors_origins: list[str] = Field(default_factory=lambda: list(DEFAULT_CORS_ORIGINS))
     evals_report_path: str = "evals/report.md"
@@ -59,17 +62,14 @@ class ApiConfig(BaseModel):
             chain_id=chain_id,
         )
         cors = os.environ.get("AEGIS_CORS_ORIGINS")
+        operator_key = operator_key_from_env(chain_id) if state else None
         return cls(
             approval=approval,
+            operator_key=operator_key,
             state_dir=state_dir,
             cors_origins=[o.strip() for o in cors.split(",")] if cors else DEFAULT_CORS_ORIGINS,
             evals_report_path=os.environ.get("AEGIS_EVALS_REPORT", "evals/report.md"),
         )
 
 
-def load_chain_state(state_dir: Path) -> dict[str, Any] | None:
-    """Read ``state.json`` (chain coordinates) if the dev/demo stack wrote one."""
-    path = state_dir / "state.json"
-    if not path.exists():
-        return None
-    return json.loads(path.read_text())
+__all__ = ["ApiConfig", "DEFAULT_CORS_ORIGINS", "load_chain_state"]
