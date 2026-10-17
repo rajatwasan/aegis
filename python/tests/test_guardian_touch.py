@@ -5,6 +5,7 @@ import hashlib
 import json
 import struct
 from pathlib import Path
+from types import SimpleNamespace
 
 import cbor2
 import pytest
@@ -14,7 +15,7 @@ from fastapi.testclient import TestClient
 from aegis.approval import create_app
 from aegis.audit.canonical import canonical_json
 from aegis.guardian_touch import GuardianTouchConfig, decision_challenge, mount_guardian_touch
-from tests.helpers import dev_approval_config
+from tests.helpers import bearer, dev_approval_config
 
 TOKEN = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 ALICE = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
@@ -150,3 +151,86 @@ def test_cli_pair_code_mints_a_live_code(client: TestClient, tmp_path: Path, cap
     assert len(code) == 6
     options = client.post("/guardian/pair/options", json={"code": code})
     assert options.status_code == 200
+
+
+ADMIN = {"Authorization": f"Bearer {ADMIN_TOKEN}"}
+
+
+def _code(client: TestClient) -> str:
+    return client.post("/guardian/pair/start", headers=ADMIN).json()["code"]
+
+
+class TestPairingLifecycle:
+    """Every refusal path of pairing and deciding has its own status code (R14)."""
+
+    def test_unknown_code_404(self, client: TestClient) -> None:
+        assert client.post("/guardian/pair/options", json={"code": "ZZZZZZ"}).status_code == 404
+
+    def test_expired_code_410(self, client: TestClient, monkeypatch) -> None:
+        code = _code(client)
+        import aegis.guardian_touch.routes as routes
+
+        real_time = routes.time.time
+        monkeypatch.setattr(routes.time, "time", lambda: real_time() + 3600)
+        assert client.post("/guardian/pair/options", json={"code": code}).status_code == 410
+
+    def test_options_then_complete_then_code_is_used(self, client: TestClient, monkeypatch) -> None:
+        code = _code(client)
+        options = client.post("/guardian/pair/options", json={"code": code.lower()})
+        assert options.status_code == 200 and options.json()["rp"]["id"] == RP_ID
+
+        monkeypatch.setattr(
+            "aegis.guardian_touch.routes.verify_registration_response",
+            lambda **_: SimpleNamespace(
+                credential_id=b"new-credential", credential_public_key=b"cose", sign_count=0
+            ),
+        )
+        done = client.post("/guardian/pair/complete", json={"code": code, "credential": {}})
+        assert done.status_code == 200
+        assert client.app.state.guardian_store.get_credential(done.json()["credential_id"])
+        # single use: the same code cannot pair a second device
+        again = client.post("/guardian/pair/options", json={"code": code})
+        assert again.status_code == 409
+
+    def test_complete_with_bad_registration_400(self, client: TestClient) -> None:
+        code = _code(client)
+        res = client.post("/guardian/pair/complete", json={"code": code, "credential": {}})
+        assert res.status_code == 400
+        assert "registration verification failed" in res.json()["detail"]
+        # a failed ceremony does not burn the code
+        assert client.post("/guardian/pair/options", json={"code": code}).status_code == 200
+
+    def test_auth_options_unknown_decision_404_and_no_passkey_409(self, client: TestClient) -> None:
+        assert client.post("/guardian/auth-options/nope").status_code == 404
+        decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
+        res = client.post(f"/guardian/auth-options/{decision_id}")
+        assert res.status_code == 409 and "no guardian passkey" in res.json()["detail"]
+
+    def test_decide_refusals(self, client: TestClient) -> None:
+        body = {"action": "approve", "comment": "", "credential": make_assertion(b"x" * 32)}
+        assert client.post("/guardian/decide/nope", json=body).status_code == 404
+
+        decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
+        no_id = {"action": "approve", "comment": "", "credential": {"response": {}}}
+        assert client.post(f"/guardian/decide/{decision_id}", json=no_id).status_code == 400
+        unknown = client.post(f"/guardian/decide/{decision_id}", json=body)
+        assert unknown.status_code == 404 and "unknown credential" in unknown.json()["detail"]
+
+        client.post(f"/proposals/{decision_id}/reject", json={}, headers=bearer("ops-1"))
+        settled = client.post(f"/guardian/decide/{decision_id}", json=body)
+        assert settled.status_code == 409
+
+    def test_passkey_reject_records_principal(self, client: TestClient, monkeypatch) -> None:
+        client.app.state.guardian_store.add_credential(CRED_ID, cose_public_key(), 0)
+        monkeypatch.setattr(
+            "aegis.guardian_touch.routes.verify_authentication_response",
+            lambda **_: SimpleNamespace(new_sign_count=3),
+        )
+        decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
+        res = client.post(
+            f"/guardian/decide/{decision_id}",
+            json={"action": "reject", "comment": "no", "credential": make_assertion(b"y" * 32)},
+        )
+        assert res.status_code == 200
+        assert res.json()["resolution"]["auth"] == "passkey"
+        assert client.app.state.guardian_store.get_credential(CRED_ID)["sign_count"] == 3

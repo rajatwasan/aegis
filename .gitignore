@@ -20,3 +20,5 @@ loop.out
 .claude/
 nohup.out
 aegis_profile.json
+coverage.json
+!.env.example

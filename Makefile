@@ -27,7 +27,12 @@ lint:
 test: test-contracts test-python frontend-test test-scripts
 
 test-scripts:
+	bash scripts/check_hygiene.sh
 	bash scripts/tests/test_start_fallback.sh
+
+coverage:
+	$(PYTEST) python/tests -q --cov=aegis --cov-branch --cov-report=json:coverage.json
+	$(PY) scripts/check_coverage.py coverage.json
 
 test-contracts:
 	cd contracts && forge test
