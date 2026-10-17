@@ -71,3 +71,28 @@ def operator_key_from_env(chain_id: int | None) -> str:
     if substituted:
         _announce("operator", chain_id, "AEGIS_OPERATOR_KEY")
     return key
+
+
+DEV_POLICY_PATH = "policies/dev.yaml"
+
+
+def policy_path_from_env(chain_id: int | None) -> str:
+    """``AEGIS_POLICY_PATH``, or the dev policy on a dev chain (announced).
+
+    The dev policy allowlists anvil's accounts; on a public chain that would
+    pre-approve destinations anyone controls, so the path is required there.
+    """
+    explicit = optional_env("AEGIS_POLICY_PATH")
+    if explicit is not None:
+        return explicit
+    if devchain.is_dev_chain(chain_id):
+        print(
+            f"notice: AEGIS_POLICY_PATH unset; using {DEV_POLICY_PATH} because chain"
+            f" {chain_id} is a dev chain",
+            file=sys.stderr,
+        )
+        return DEV_POLICY_PATH
+    raise ConfigError(
+        f"AEGIS_POLICY_PATH is required on chain {chain_id}: the dev policy allowlists"
+        " anvil accounts"
+    )

@@ -12,7 +12,7 @@ from aegis import devchain
 from aegis.approval import ApprovalConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 DEV_GUARDIAN_KEY = devchain.dev_guardian_key()
 DEV_OPERATOR_KEY = devchain.dev_operator_key()

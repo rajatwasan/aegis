@@ -27,7 +27,7 @@ def main() -> int:
                 db_path=f"{tmp}/approvals.db",
                 audit_log_path=f"{tmp}/audit.jsonl",
                 audit_key_file=f"{tmp}/audit.key",
-                policy_path=str(REPO_ROOT / "policies" / "default.yaml"),
+                policy_path=str(REPO_ROOT / "policies" / "dev.yaml"),
                 # schema generation only; nothing is served and nothing is signed
                 guardian_key=devchain.dev_guardian_key(),
                 approver_tokens={"schema": "schema-generation-only-token-000"},

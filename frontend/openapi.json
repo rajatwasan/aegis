@@ -603,6 +603,7 @@
         "type": "object"
       },
       "InjectionStats": {
+        "description": "Headline numbers from the last eval run: a report file, not a live count.",
         "properties": {
           "attacks": {
             "title": "Attacks",
@@ -615,12 +616,22 @@
           "bypasses": {
             "title": "Bypasses",
             "type": "integer"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
           }
         },
         "required": [
           "attacks",
           "bypasses",
-          "blocked"
+          "blocked",
+          "source",
+          "generated_at"
         ],
         "title": "InjectionStats",
         "type": "object"
@@ -775,6 +786,17 @@
           "known": {
             "title": "Known",
             "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           }
         },
         "required": [

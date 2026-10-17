@@ -31,6 +31,7 @@ def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "AEGIS_DUAL_CONTROL",
         "AEGIS_APPROVER_TOKENS",
         "AEGIS_ADMIN_TOKEN",
+        "AEGIS_POLICY_PATH",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -99,9 +100,26 @@ class TestGuardianKeyFromEnv:
         # state.json says the deployment is on a public chain: no key means no start
         (tmp_path / "state.json").write_text(json.dumps({"chain_id": PUBLIC_CHAIN}))
         monkeypatch.setenv("AEGIS_STATE_DIR", str(tmp_path))
+        monkeypatch.setenv("AEGIS_POLICY_PATH", "policies/dev.yaml")
         with pytest.raises(ConfigError) as excinfo:
             ApiConfig.from_env()
         assert "AEGIS_GUARDIAN_KEY" in str(excinfo.value)
+
+    def test_policy_path_required_on_public_chain(self, monkeypatch, capsys) -> None:
+        """W7: the dev policy allowlists anvil accounts; never implicit off a dev chain."""
+        from aegis.keys import policy_path_from_env
+
+        monkeypatch.delenv("AEGIS_POLICY_PATH", raising=False)
+        with pytest.raises(ConfigError, match="AEGIS_POLICY_PATH"):
+            policy_path_from_env(PUBLIC_CHAIN)
+        assert policy_path_from_env(31337) == "policies/dev.yaml"
+        assert "AEGIS_POLICY_PATH unset" in capsys.readouterr().err
+        monkeypatch.setenv("AEGIS_POLICY_PATH", "/etc/aegis/policy.yaml")
+        assert policy_path_from_env(PUBLIC_CHAIN) == "/etc/aegis/policy.yaml"
+
+    def test_policy_path_has_no_model_default(self, tmp_path: Path) -> None:
+        with pytest.raises(Exception, match="policy_path"):
+            ApprovalConfig(guardian_key=DEV_GUARDIAN_KEY)  # type: ignore[call-arg]
 
     def test_api_config_from_env_dev_chain_without_state(self, monkeypatch, tmp_path: Path) -> None:
         monkeypatch.setenv("AEGIS_STATE_DIR", str(tmp_path))

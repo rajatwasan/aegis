@@ -19,7 +19,7 @@ from tests.conftest import ACCOUNTS, KEYS, OPERATOR
 from tests.helpers import TOKENS, bearer, fresh_key
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 
 @pytest.fixture()
@@ -35,6 +35,7 @@ def chain_app(deployment, tmp_path: Path):
         "registry_address": deployment["registry"].address,
         "audit_log_path": str(tmp_path / "audit.jsonl"),
         "audit_key_file": str(tmp_path / "audit.key"),
+        "parties": {"compliant": [ACCOUNTS[1], ACCOUNTS[2], ACCOUNTS[3]], "frozen": [ACCOUNTS[4]]},
     }
     (tmp_path / "state.json").write_text(json.dumps(state))
     config = ApiConfig(
@@ -332,6 +333,7 @@ class TestCompliance:
             "known": True,
             "compliant": True,
             "frozen": False,
+            "reason": None,
         }
 
         frozen = client.get(f"/compliance/{ACCOUNTS[4]}").json()
@@ -468,3 +470,32 @@ class TestAgentRunWithModel:
         assert run.status == "finished"
         assert run.results[-1]["status"] == "refused"
         assert "malformed model reply: no JSON object" in run.results[-1]["reason"]
+
+
+class TestCannedPlansFromState:
+    def test_canned_plans_use_state_parties(self, chain_app, client: TestClient) -> None:
+        """W7: destinations come from what the deployer seeded, not from code."""
+        state_path = Path(chain_app.state.api_config.state_dir) / "state.json"
+        state = json.loads(state_path.read_text())
+        state["parties"]["compliant"] = [ACCOUNTS[3], ACCOUNTS[2], ACCOUNTS[1]]
+        state_path.write_text(json.dumps(state))
+        res = client.post(
+            "/agent/run", json={"instruction": "Send 50,000 AGD to the treasury desk"}
+        )
+        pending = wait_for(lambda: client.get("/proposals", params={"status": "pending"}).json())
+        assert pending[0]["proposal"]["to"].lower() == ACCOUNTS[3].lower()
+        client.post(
+            f"/proposals/{pending[0]['decision_id']}/reject", json={}, headers=bearer("ops-1")
+        )
+        chain_app.state.runner.wait(res.json()["run_id"], timeout=30)
+
+    def test_state_without_parties_cannot_run_demo_plans(
+        self, chain_app, client: TestClient
+    ) -> None:
+        state_path = Path(chain_app.state.api_config.state_dir) / "state.json"
+        state = json.loads(state_path.read_text())
+        del state["parties"]
+        state_path.write_text(json.dumps(state))
+        res = client.post("/agent/run", json={"instruction": "Pay the vendor invoice batch"})
+        assert res.status_code == 503
+        assert "no seeded parties" in res.json()["detail"]

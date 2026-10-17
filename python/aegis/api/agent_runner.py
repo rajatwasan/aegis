@@ -20,16 +20,11 @@ from typing import Any
 from fastapi.testclient import TestClient
 from langgraph.types import Command
 
-from aegis import devchain
 from aegis.agent import AegisRuntime, ChainClient, MockLLM, build_graph
 from aegis.agent.llm import AnthropicLLM, provider_from_env
 from aegis.anchoring import StateError
 from aegis.api.config import ApiConfig, load_chain_state
 from aegis.events import EventBus
-
-# the demo world's parties (anvil accounts seeded by aegis.demo.deploy)
-_ACCOUNTS = devchain.ACCOUNTS
-FROZEN_ACCOUNT = _ACCOUNTS[devchain.FROZEN_INDEX]
 
 
 def _transfer(token: str, operator: str, to: str, amount: int) -> dict[str, Any]:
@@ -39,36 +34,53 @@ def _transfer(token: str, operator: str, to: str, amount: int) -> dict[str, Any]
     }
 
 
-def canned_plans(token: str, operator: str) -> dict[str, dict[str, Any]]:
-    """The MockLLM's scripted plans, keyed by normalized instruction."""
-    plans = {
+def canned_plans(
+    token: str, operator: str, parties: dict[str, list[str]]
+) -> dict[str, dict[str, Any]]:
+    """The scripted demo plans, keyed by normalized instruction.
+
+    Destinations come from ``state.json["parties"]``, the world the deployer
+    actually seeded, not from addresses spelled here. A state file without
+    parties cannot run the demo plans and says so (AGENTS.md R11).
+    """
+    compliant = list(parties.get("compliant") or [])
+    frozen = list(parties.get("frozen") or [])
+    if len(compliant) < 3 or not frozen:
+        raise StateError(
+            "state.json has no seeded parties (need 3 compliant, 1 frozen) for the"
+            " scripted demo plans; redeploy with make dev or set AEGIS_LLM=anthropic"
+        )
+    a, b, c = compliant[:3]
+    return {
         "pay the vendor invoice batch": {
             "description": "Three small compliant transfers that auto-execute under policy",
             "plan": [
-                {"tool": "check_compliance", "args": {"address": _ACCOUNTS[1]}},
-                _transfer(token, operator, _ACCOUNTS[1], 1_200),
-                _transfer(token, operator, _ACCOUNTS[2], 2_500),
-                _transfer(token, operator, _ACCOUNTS[3], 3_400),
+                {"tool": "check_compliance", "args": {"address": a}},
+                _transfer(token, operator, a, 1_200),
+                _transfer(token, operator, b, 2_500),
+                _transfer(token, operator, c, 3_400),
             ],
         },
         "send 50,000 agd to the treasury desk": {
             "description": "A large transfer that escalates to a human guardian",
             "plan": [
-                {"tool": "check_compliance", "args": {"address": _ACCOUNTS[1]}},
-                _transfer(token, operator, _ACCOUNTS[1], 50_000),
+                {"tool": "check_compliance", "args": {"address": a}},
+                _transfer(token, operator, a, 50_000),
             ],
         },
         "refund 10 agd to the frozen counterparty": {
             "description": "A transfer to a frozen address the policy denies outright",
-            "plan": [_transfer(token, operator, FROZEN_ACCOUNT, 10)],
+            "plan": [_transfer(token, operator, frozen[0], 10)],
         },
     }
-    return plans
+
+
+_PLACEHOLDER_PARTIES = {"compliant": ["0x0", "0x0", "0x0"], "frozen": ["0x0"]}
 
 
 def canned_instructions() -> list[dict[str, str]]:
     """Instruction chips for the console (plan bodies need live addresses)."""
-    placeholder = canned_plans(token="0x0", operator="0x0")
+    placeholder = canned_plans(token="0x0", operator="0x0", parties=_PLACEHOLDER_PARTIES)
     return [
         {"instruction": _title(key), "description": value["description"]}
         for key, value in placeholder.items()
@@ -151,7 +163,9 @@ class AgentRunner:
         runtime, state = self._ensure_runtime()
         provider = provider_from_env()
         if isinstance(provider, MockLLM):
-            plans = canned_plans(state["token_address"], runtime.chain.operator_address)
+            plans = canned_plans(
+                state["token_address"], runtime.chain.operator_address, state.get("parties") or {}
+            )
             entry = plans.get(_normalize(instruction))
             if entry is None:
                 known = ", ".join(f"'{_title(k)}'" for k in plans)

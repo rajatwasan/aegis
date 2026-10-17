@@ -219,7 +219,9 @@ function PartyLine({ label, address }: { label: string; address: string }) {
         {status.isPending ? (
           <Skeleton className="h-4 w-24" />
         ) : data === undefined || !data.known ? (
-          <Badge tone="neutral">standing unknown</Badge>
+          <span title={data?.reason ?? status.error?.message ?? "no response"}>
+            <Badge tone="warn">standing unavailable</Badge>
+          </span>
         ) : (
           <>
             <Badge tone={data.compliant ? "ok" : "danger"}>

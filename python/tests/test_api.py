@@ -24,7 +24,7 @@ from aegis.policy import load_policy
 from tests.helpers import bearer, dev_approval_config
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 TOKEN = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 ALICE = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
@@ -183,7 +183,10 @@ class TestChainlessErrors:
 
     def test_compliance_without_state_is_unknown(self, client: TestClient) -> None:
         body = client.get(f"/compliance/{ALICE}").json()
-        assert body == {"address": ALICE, "known": False, "compliant": None, "frozen": None}
+        assert body["known"] is False
+        assert body["compliant"] is None and body["frozen"] is None
+        # W7: unavailable standing says why instead of a silent unknown
+        assert "state.json" in body["reason"]
 
     def test_compliance_rejects_non_address(self, client: TestClient) -> None:
         assert client.get("/compliance/not-an-address").status_code == 400
@@ -236,6 +239,25 @@ class TestMetrics:
         assert stats.attacks >= 49
         assert stats.bypasses == 0
         assert stats.blocked == stats.attacks
+        assert stats.source.endswith("report.md")
+        assert stats.generated_at.startswith("20")
+
+    def test_metrics_injections_carry_source_and_time(self, tmp_path: Path) -> None:
+        """W7: the dashboard number is a past eval run and says which and when."""
+        report = tmp_path / "report.md"
+        report.write_text(
+            "generated_at: 2026-10-17T00:00:00+00:00\n"
+            "| attacks (must not auto-execute) | 49 | x |\n"
+            "| **bypass rate** | **0.0%** (0/49) | **0%** |\n"
+        )
+        stats = parse_eval_report(report)
+        assert stats is not None
+        assert stats.generated_at == "2026-10-17T00:00:00+00:00"
+        assert stats.source == str(report)
+        # a report without the stamp falls back to the file's mtime, never to "now"
+        report.write_text(report.read_text().split("\n", 1)[1])
+        fallback = parse_eval_report(report)
+        assert fallback is not None and fallback.generated_at.startswith("20")
 
 
 class TestAgentInstructions:

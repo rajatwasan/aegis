@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from aegis.approval.config import ApprovalConfig, approver_tokens_from_env
 from aegis.config import env_flag, optional_env
-from aegis.keys import guardian_key_from_env, operator_key_from_env
+from aegis.keys import guardian_key_from_env, operator_key_from_env, policy_path_from_env
 from aegis.state import load_chain_state
 
 DEFAULT_CORS_ORIGINS = [
@@ -55,7 +55,7 @@ class ApiConfig(BaseModel):
                 "AEGIS_AUDIT_KEY_FILE",
                 state.get("audit_key_file", str(Path(state_dir) / "audit.key")),
             ),
-            policy_path=os.environ.get("AEGIS_POLICY_PATH", "policies/default.yaml"),
+            policy_path=policy_path_from_env(chain_id),
             ttl_seconds=float(os.environ.get("AEGIS_APPROVAL_TTL_SECONDS", "900")),
             dual_control=env_flag("AEGIS_DUAL_CONTROL", False),
             guardian_key=guardian_key_from_env(chain_id),

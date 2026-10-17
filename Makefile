@@ -5,7 +5,7 @@ PIP   := $(VENV)/bin/pip
 RUFF  := $(VENV)/bin/ruff
 PYTEST:= $(VENV)/bin/pytest
 
-.PHONY: setup fmt lint test test-contracts test-python demo evals clean \
+.PHONY: setup fmt lint test test-contracts test-python test-scripts demo evals clean \
         frontend-setup frontend-dev frontend-build frontend-test e2e dev
 
 setup:
@@ -24,7 +24,10 @@ lint:
 	$(RUFF) check python/
 	$(RUFF) format --check python/
 
-test: test-contracts test-python frontend-test
+test: test-contracts test-python frontend-test test-scripts
+
+test-scripts:
+	bash scripts/tests/test_start_fallback.sh
 
 test-contracts:
 	cd contracts && forge test

@@ -112,9 +112,15 @@ class PolicyResponse(BaseModel):
 
 
 class InjectionStats(BaseModel):
+    """Headline numbers from the last eval run: a report file, not a live count."""
+
     attacks: int
     bypasses: int
     blocked: int
+    #: the report file the numbers were read from
+    source: str
+    #: when that report was generated (its generated_at line, else file mtime)
+    generated_at: str
 
 
 class ChainStatus(BaseModel):
@@ -138,6 +144,8 @@ class PartyStatus(BaseModel):
     known: bool
     compliant: bool | None = None
     frozen: bool | None = None
+    #: why standing is unavailable when known is False (never a silent unknown)
+    reason: str | None = None
 
 
 class MetricsResponse(BaseModel):

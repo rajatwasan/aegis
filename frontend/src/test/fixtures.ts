@@ -53,7 +53,13 @@ export function makeMetrics(overrides: Partial<Metrics> = {}): Metrics {
     escalation_rate: 0.25,
     pending_count: 2,
     last_anchor: makeAnchor(),
-    injections: { attacks: 49, bypasses: 0, blocked: 49 },
+    injections: {
+      attacks: 49,
+      bypasses: 0,
+      blocked: 49,
+      source: "evals/report.md",
+      generated_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
+    },
     chain: makeChainStatus(),
     ...overrides,
   };

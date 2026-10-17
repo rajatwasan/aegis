@@ -18,7 +18,7 @@ from aegis.policy import load_policy
 from tests.conftest import ACCOUNTS, FROZEN_ACCOUNT, KEYS, OPERATOR, REPO_ROOT
 from tests.helpers import TOKENS, bearer, fresh_key
 
-POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 
 @pytest.fixture()

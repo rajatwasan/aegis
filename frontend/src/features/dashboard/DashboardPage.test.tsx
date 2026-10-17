@@ -24,9 +24,10 @@ describe("DashboardPage", () => {
     expect(screen.getByText("25.0%")).toBeInTheDocument();
     // denials card + injections blocked from evals/report.md via /metrics
     expect(screen.getByText("denials")).toBeInTheDocument();
-    expect(screen.getByText("injections blocked")).toBeInTheDocument();
+    // a past eval run, labelled and dated, never presented as live (R13)
+    expect(screen.getByText("injections blocked, last eval run")).toBeInTheDocument();
     expect(screen.getByText("49")).toBeInTheDocument();
-    expect(screen.getByText("0/49 bypasses in evals")).toBeInTheDocument();
+    expect(screen.getByText(/0\/49 bypasses · run 2h ago/)).toBeInTheDocument();
   });
 
   it("draws the decisions-by-effect bar in the status colors", async () => {
@@ -145,6 +146,8 @@ describe("DashboardPage", () => {
     renderApp(<App />, { route: "/" });
     expect(await screen.findByText("No decisions yet.")).toBeInTheDocument();
     expect(screen.getByText(/Nothing anchored yet/)).toBeInTheDocument();
-    expect(screen.getByText("run make evals")).toBeInTheDocument();
+    // no report: an explicit n/a, not a skeleton that looks like loading (R12)
+    expect(screen.getByText("no eval report · run make evals")).toBeInTheDocument();
+    expect(screen.getByText("n/a")).toBeInTheDocument();
   });
 });

@@ -5,9 +5,10 @@
 # anchored Merkle root is a transaction anyone can open in a block explorer.
 # That needs AEGIS_RPC_URL + a funded AEGIS_DEPLOYER_KEY (fly secrets).
 #
-# Fallback: if the public RPC is unreachable or the deployer is unfunded, run a
-# local anvil so the demo still works — the console labels the chain, so a
-# local fallback is never mistaken for the real thing.
+# Fallback: only with AEGIS_ALLOW_LOCAL_FALLBACK=true. Otherwise a public deploy
+# that fails (RPC unreachable, deployer unfunded, bad key) exits 1: a hosted
+# service silently running on a disposable chain is the failure this prevents.
+# With no public chain configured at all, a local anvil is the explicit choice.
 #
 # The deployment is REUSED across restarts when the contracts still exist
 # (public chains cost gas, and redeploying would orphan the audit log).
@@ -15,7 +16,7 @@ set -euo pipefail
 
 STATE_DIR="${AEGIS_STATE_DIR:-/data/aegis}"
 PUBLIC_RPC="${AEGIS_RPC_URL:-}"
-DEPLOYER_KEY="${AEGIS_DEPLOYER_KEY:-}"
+DEPLOYER_KEY="${AEGIS_OPERATOR_KEY:-${AEGIS_DEPLOYER_KEY:-}}"
 mkdir -p "$STATE_DIR"
 
 rpc_alive() {
@@ -37,6 +38,17 @@ start_anvil() {
 }
 
 deployed=0
+ALLOW_FALLBACK="${AEGIS_ALLOW_LOCAL_FALLBACK:-false}"
+
+refuse_or_fallback() {
+  if [ "$ALLOW_FALLBACK" = "true" ]; then
+    echo "[start] WARNING: $1; AEGIS_ALLOW_LOCAL_FALLBACK=true, falling back to anvil" >&2
+  else
+    echo "[start] ERROR: $1; refusing to fall back to a local chain" >&2
+    echo "[start] set AEGIS_ALLOW_LOCAL_FALLBACK=true to run on a disposable anvil" >&2
+    exit 1
+  fi
+}
 
 if [ -n "$PUBLIC_RPC" ] && [ -n "$DEPLOYER_KEY" ]; then
   echo "[start] public chain configured; probing RPC..."
@@ -48,10 +60,10 @@ if [ -n "$PUBLIC_RPC" ] && [ -n "$DEPLOYER_KEY" ]; then
         --reuse; then
       deployed=1
     else
-      echo "[start] WARNING: public deploy failed (unfunded key?); falling back to anvil" >&2
+      refuse_or_fallback "public deploy failed (unfunded or invalid key?)"
     fi
   else
-    echo "[start] WARNING: public RPC unreachable; falling back to anvil" >&2
+    refuse_or_fallback "public RPC unreachable"
   fi
 else
   echo "[start] no AEGIS_RPC_URL/AEGIS_DEPLOYER_KEY set; using local anvil"

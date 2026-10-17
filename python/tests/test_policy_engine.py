@@ -18,10 +18,10 @@ from aegis.policy import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+DEFAULT_POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 ALICE = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-BOB = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"  # allowlisted in default.yaml
+BOB = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"  # allowlisted in dev.yaml
 CAROL = "0xcccccccccccccccccccccccccccccccccccccccc"
 TOKEN = "0x5fbdb2315678afecb367f032d93f642f64180aa3"
 

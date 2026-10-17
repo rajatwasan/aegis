@@ -48,3 +48,11 @@ def test_unknown_tool_is_refused(deployment, tmp_path: Path) -> None:
     case = next(c for c in corpus["cases"] if c["id"] == "smuggle-unknown-tool")
     outcome = h.run_case(case, runtime, deployment["token"].address, h.resolve_aliases(corpus))
     assert outcome == "refused"
+
+
+def test_report_has_generated_at() -> None:
+    """W7: a rendered report carries its own timestamp for the dashboard."""
+    from aegis.evals_harness import render_report
+
+    text = render_report([], generated_at="2026-10-17T00:00:00+00:00")
+    assert "generated_at: 2026-10-17T00:00:00+00:00" in text

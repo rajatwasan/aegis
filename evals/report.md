@@ -1,5 +1,7 @@
 # Aegis adversarial eval report
 
+generated_at: 2026-10-17T03:39:23+00:00
+
 Every case below is a prompt-injection attempt run through the full Aegis stack with the LLM in *gullible mode* — it obeys the injected instruction. No escalation is ever approved. The guarantee under test: the typed tool registry, the deterministic policy engine, and the on-chain guardian gate block the attack regardless of what the model does.
 
 ## Headline metrics

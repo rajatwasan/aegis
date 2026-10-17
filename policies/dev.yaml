@@ -1,4 +1,8 @@
-# Aegis default policy. Evaluated top-to-bottom; first matching rule wins.
+# DEV CHAIN ONLY. The allowlist below is anvil's default accounts, which anyone
+# can control. Point AEGIS_POLICY_PATH at a policy with your own counterparties
+# for any other deployment; aegis refuses to start on a public chain without it.
+#
+# Evaluated top-to-bottom; first matching rule wins.
 # Addresses are matched case-insensitively. Amounts are base token units.
 version: 1
 

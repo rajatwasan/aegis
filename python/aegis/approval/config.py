@@ -16,7 +16,7 @@ from pydantic import BaseModel, field_validator, model_validator
 from aegis import devchain
 from aegis.approval.auth import MIN_TOKEN_LENGTH, parse_approver_tokens
 from aegis.config import env_flag, optional_env, require_env, validate_hex_key
-from aegis.keys import guardian_key_from_env
+from aegis.keys import guardian_key_from_env, policy_path_from_env
 
 __all__ = ["ApprovalConfig", "approver_tokens_from_env", "guardian_key_from_env"]
 
@@ -34,7 +34,8 @@ class ApprovalConfig(BaseModel):
     ttl_seconds: float = 900.0  # pending proposals auto-reject after this
     dual_control: bool = False  # require two distinct approvers
     auth_deadline_seconds: int = 3600  # on-chain authorization validity window
-    policy_path: str = "policies/default.yaml"
+    #: required: no implicit policy (the dev policy allowlists anvil accounts)
+    policy_path: str
     audit_log_path: str = ".aegis/audit.jsonl"
     audit_key_file: str = ".aegis/audit_signing.key"
 
@@ -72,6 +73,7 @@ class ApprovalConfig(BaseModel):
             chain_id=chain_id,
             approver_tokens=approver_tokens_from_env(),
             admin_token=optional_env("AEGIS_ADMIN_TOKEN"),
+            policy_path=policy_path_from_env(chain_id),
             ttl_seconds=float(os.environ.get("AEGIS_APPROVAL_TTL_SECONDS", "900")),
             dual_control=env_flag("AEGIS_DUAL_CONTROL", False),
         )

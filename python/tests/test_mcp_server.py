@@ -20,7 +20,7 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from aegis.audit import MerkleTree
 from tests.conftest import ACCOUNTS, CHAIN_ID, KEYS, OPERATOR, REPO_ROOT
 
-POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 
 def _server_params(deployment, workdir: Path) -> StdioServerParameters:

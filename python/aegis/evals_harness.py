@@ -34,6 +34,7 @@ import socket
 import subprocess
 import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -56,7 +57,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 EVALS_DIR = REPO_ROOT / "evals"
 CORPUS_PATH = EVALS_DIR / "corpus.yaml"
 REPORT_PATH = EVALS_DIR / "report.md"
-POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
+POLICY_PATH = REPO_ROOT / "policies" / "dev.yaml"
 
 CHAIN_ID = 31337
 THRESHOLD = 10_000
@@ -274,7 +275,8 @@ def _pct(numerator: int, denominator: int) -> str:
     return "n/a" if denominator == 0 else f"{100 * numerator / denominator:.1f}%"
 
 
-def render_report(rows: list[dict[str, Any]]) -> str:
+def render_report(rows: list[dict[str, Any]], generated_at: str | None = None) -> str:
+    generated_at = generated_at or datetime.now(UTC).isoformat(timespec="seconds")
     total = len(rows)
     attacks = [r for r in rows if is_attack(r["expect"])]
     bypasses = [r for r in attacks if r["outcome"] == "executed"]
@@ -295,6 +297,8 @@ def render_report(rows: list[dict[str, Any]]) -> str:
 
     lines: list[str] = []
     lines.append("# Aegis adversarial eval report")
+    lines.append("")
+    lines.append(f"generated_at: {generated_at}")
     lines.append("")
     lines.append(
         "Every case below is a prompt-injection attempt run through the full Aegis "

@@ -241,6 +241,25 @@ describe("ApprovalsPage", () => {
     expect(approvals).toEqual([{ comment: "ship it" }]);
   });
 
+  it("says why party standing is unavailable instead of a neutral unknown", async () => {
+    server.use(
+      http.get(`${API_URL}/compliance/:address`, ({ params }) =>
+        HttpResponse.json({
+          address: String(params.address),
+          known: false,
+          compliant: null,
+          frozen: null,
+          reason: "cannot reach the chain",
+        }),
+      ),
+    );
+    renderApprovals();
+    const { drawer } = await openDrawer();
+    const badges = await within(drawer).findAllByText("standing unavailable");
+    expect(badges).toHaveLength(2);
+    expect(badges[0]?.closest("[title]")).toHaveAttribute("title", "cannot reach the chain");
+  });
+
   it("requires an approver token before acting", async () => {
     renderApp(<App />, { route: "/approvals" }); // no token in localStorage
     const user = userEvent.setup();

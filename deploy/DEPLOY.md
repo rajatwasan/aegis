@@ -35,6 +35,7 @@ is the authoritative list; the ones a deployment needs today:
 | `AEGIS_GUARDIAN_KEY` | the guardian signing key held by the approval service | generate one (below); never reuse the deployer key |
 | `AEGIS_APPROVER_TOKENS` | one bearer token per named approver, `id:token,id:token` | tokens are at least 24 characters; each human gets their own id so the audit log names who approved; rotate by redeploying the secret |
 | `AEGIS_ADMIN_TOKEN` | operator token that mints passkey pairing codes | at least 24 characters; only the operator holds it |
+| `AEGIS_POLICY_PATH` | the policy file the gate applies | required on a public chain; `policies/dev.yaml` allowlists anvil accounts and is for dev chains only. Ship your policy in the image or on the volume |
 | `AEGIS_RP_ID`, `AEGIS_EXPECTED_ORIGIN` | WebAuthn relying party for guardian passkeys | the console's host and origin (not the API's); required on a public chain |
 | `AEGIS_CORS_ORIGINS` | the console origin(s), comma separated | the static host's URL |
 | `AEGIS_STATE_DIR` | where `state.json`, the audit log and anchors live | `/data/aegis`, on the persistent volume |
@@ -90,11 +91,15 @@ What `deploy/start.sh` does on boot:
 1. If `AEGIS_RPC_URL` and `AEGIS_DEPLOYER_KEY` are set and the RPC answers, it
    deploys the contract suite (or reuses an existing deployment recorded in
    `state.json` when the contracts still hold code) and writes `state.json`.
-2. Otherwise it starts a local anvil inside the container and deploys there. A
-   local chain is disposable: a restart means a fresh chain and an empty audit
-   log, and the console labels the chain `local` with no explorer links. Treat
-   this as a development convenience, not a deployment.
-3. It starts the API.
+2. If a public chain is configured but the deploy fails (RPC unreachable,
+   deployer unfunded, invalid key), it exits 1. It falls back to a local anvil
+   only when `AEGIS_ALLOW_LOCAL_FALLBACK=true`.
+3. With no public chain configured at all, it starts a local anvil inside the
+   container and deploys there. A local chain is disposable: a restart means a
+   fresh chain and an empty audit log, and the console labels the chain `local`
+   with no explorer links. Treat this as a development convenience, not a
+   deployment.
+4. It starts the API.
 
 ## 4. Deploy the console
 

@@ -592,7 +592,10 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** InjectionStats */
+        /**
+         * InjectionStats
+         * @description Headline numbers from the last eval run: a report file, not a live count.
+         */
         InjectionStats: {
             /** Attacks */
             attacks: number;
@@ -600,6 +603,10 @@ export interface components {
             blocked: number;
             /** Bypasses */
             bypasses: number;
+            /** Generated At */
+            generated_at: string;
+            /** Source */
+            source: string;
         };
         /** MetricsResponse */
         MetricsResponse: {
@@ -656,6 +663,8 @@ export interface components {
             frozen?: boolean | null;
             /** Known */
             known: boolean;
+            /** Reason */
+            reason?: string | null;
         };
         /** PolicyResponse */
         PolicyResponse: {

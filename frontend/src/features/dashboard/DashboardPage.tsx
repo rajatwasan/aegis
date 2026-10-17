@@ -6,7 +6,7 @@ import { Badge } from "../../components/ui/Badge";
 import { ExplorerLink, TxLink } from "../../components/ui/ExplorerLink";
 import { HashChip } from "../../components/ui/Mono";
 import { ErrorState, Skeleton } from "../../components/ui/States";
-import { cn } from "../../lib/format";
+import { cn, relativeTime } from "../../lib/format";
 import type { Tone } from "../../lib/tone";
 
 /** The landing view: the runtime's vital signs at a glance. */
@@ -64,14 +64,22 @@ export function DashboardPage() {
               )
             }
           />
+          {/* A past eval run, not a live count (AGENTS.md R13): label it and
+              date it, and show "n/a" rather than a skeleton when no report exists. */}
           <StatCard
-            label="injections blocked"
-            value={data?.injections?.blocked}
-            tone="ok"
+            label="injections blocked, last eval run"
+            value={
+              data === undefined
+                ? undefined
+                : data.injections
+                  ? data.injections.blocked
+                  : "n/a"
+            }
+            tone={data?.injections ? "ok" : "neutral"}
             hint={
               data?.injections
-                ? `${data.injections.bypasses}/${data.injections.attacks} bypasses in evals`
-                : "run make evals"
+                ? `${data.injections.bypasses}/${data.injections.attacks} bypasses · run ${relativeTime(data.injections.generated_at)}`
+                : "no eval report · run make evals"
             }
           />
         </div>

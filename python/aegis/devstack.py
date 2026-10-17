@@ -135,6 +135,7 @@ def run(
         "anchor_address": deployment["anchor"].address,
         "token_address": deployment["token"].address,
         "registry_address": deployment["registry"].address,
+        "parties": deployment["parties"],
         "deployed_block": chain.w3.eth.block_number,
         "audit_log_path": str(state_dir / "audit.jsonl"),
         "audit_key_file": str(state_dir / "audit.key"),

@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -230,8 +231,8 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
                 compliant=runtime.check_compliance(address),
                 frozen=runtime.is_frozen(address),
             )
-        except Exception:  # noqa: BLE001 - no chain state / RPC down: unknown, not 500
-            return PartyStatus(address=address, known=False)
+        except Exception as exc:  # noqa: BLE001 - no chain / RPC down: say why, not 500
+            return PartyStatus(address=address, known=False, reason=str(exc) or type(exc).__name__)
 
     # ----------------------------------------------------------------- metrics
 
@@ -328,6 +329,16 @@ def parse_eval_report(path: Path) -> InjectionStats | None:
         return None
     attack_count = int(attacks.group(1))
     bypass_count = int(bypass.group(1))
+    stamp = re.search(r"^generated_at: (\S+)$", text, re.MULTILINE)
+    generated_at = (
+        stamp.group(1)
+        if stamp
+        else datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(timespec="seconds")
+    )
     return InjectionStats(
-        attacks=attack_count, bypasses=bypass_count, blocked=attack_count - bypass_count
+        attacks=attack_count,
+        bypasses=bypass_count,
+        blocked=attack_count - bypass_count,
+        source=str(path),
+        generated_at=generated_at,
     )
