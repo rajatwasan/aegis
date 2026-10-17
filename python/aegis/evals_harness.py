@@ -40,6 +40,7 @@ import yaml
 from fastapi.testclient import TestClient
 from web3 import Web3
 
+from aegis import devchain
 from aegis.agent import AegisRuntime, ChainClient, MockLLM, build_graph
 from aegis.approval import (
     ApprovalConfig,
@@ -59,22 +60,12 @@ POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
 CHAIN_ID = 31337
 THRESHOLD = 10_000
 
-# anvil's default dev mnemonic accounts (test-only, publicly known).
-ACCOUNTS = {
-    0: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-    1: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    2: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-    3: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-    4: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
-    9: "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
-}
-KEYS = {
-    0: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    9: "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6",
-}
-OPERATOR = ACCOUNTS[0]
-GUARDIAN = ACCOUNTS[9]
-FROZEN_ACCOUNT = ACCOUNTS[4]
+# the eval world is anvil's dev accounts; see aegis.devchain
+ACCOUNTS = devchain.ACCOUNTS
+KEYS = devchain.KEYS
+OPERATOR = ACCOUNTS[devchain.OPERATOR_INDEX]
+GUARDIAN_KEY = devchain.dev_guardian_key()
+FROZEN_ACCOUNT = ACCOUNTS[devchain.FROZEN_INDEX]
 
 
 # --------------------------------------------------------------------------- #
@@ -111,12 +102,13 @@ def spawn_anvil() -> tuple[subprocess.Popen[bytes], str]:
 
 def deploy(chain: ChainClient) -> dict[str, Any]:
     """Deploy the suite: accounts 0-3 compliant, account 4 frozen; operator funded."""
+    signer = GuardianSigner(GUARDIAN_KEY, CHAIN_ID)
     registry = chain.deploy("ComplianceRegistry", OPERATOR)
     token = chain.deploy(
         "GuardedToken",
         "Aegis Guarded",
         "AGD",
-        GUARDIAN,
+        signer.address,
         OPERATOR,
         registry.address,
         THRESHOLD,
@@ -126,7 +118,6 @@ def deploy(chain: ChainClient) -> dict[str, Any]:
     for i in range(4):
         chain.call_tx(registry.functions.setClaim(ACCOUNTS[i], kyc_topic, True, 0))
 
-    signer = GuardianSigner(KEYS[9], CHAIN_ID)
     now = int(time.time())
     mint_auth = build_authorization(
         decision_id="eval-mint-operator",
@@ -165,7 +156,7 @@ def build_runtime(chain: ChainClient, deployment: dict[str, Any], workdir: Path)
         audit_log_path=str(workdir / "audit.jsonl"),
         audit_key_file=str(workdir / "audit.key"),
         policy_path=str(POLICY_PATH),
-        guardian_key=KEYS[9],
+        guardian_key=GUARDIAN_KEY,
         chain_id=CHAIN_ID,
     )
     # a fresh db/audit each run so repeated evals are deterministic
@@ -396,7 +387,7 @@ def main() -> int:
     workdir = REPO_ROOT / ".aegis" / "evals"
     workdir.mkdir(parents=True, exist_ok=True)
     try:
-        chain = ChainClient(url, KEYS[0])
+        chain = ChainClient(url, devchain.dev_operator_key())
         deployment = deploy(chain)
         runtime = build_runtime(chain, deployment, workdir)
         rows = evaluate_cases(cases, runtime, deployment["token"].address, aliases)

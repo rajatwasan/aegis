@@ -42,9 +42,10 @@ Generate keys locally, never on the host:
 ```bash
 python - <<'PY'
 from eth_account import Account
+from web3 import Web3
 for role in ("deployer", "guardian"):
     a = Account.create()
-    print(f"{role}: address {a.address}  key {a.key.hex()}")
+    print(f"{role}: address {a.address}  key {Web3.to_hex(a.key)}")
 PY
 ```
 

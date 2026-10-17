@@ -4,6 +4,9 @@ The API serves the same state the demo/dev stack writes: proposals and the
 audit log under ``state_dir``, and chain coordinates from
 ``state_dir/state.json`` (written by ``aegis.demo`` / the dev stack). Paths
 default into ``state_dir`` so one directory holds a coherent world.
+
+The guardian key comes from ``AEGIS_GUARDIAN_KEY`` through
+:func:`aegis.approval.config.guardian_key_from_env`; there is no default.
 """
 
 from __future__ import annotations
@@ -15,7 +18,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from aegis.approval.config import DEFAULT_GUARDIAN_KEY, ApprovalConfig
+from aegis.approval.config import ApprovalConfig, guardian_key_from_env
+from aegis.config import env_flag
 
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:5173",
@@ -36,6 +40,8 @@ class ApiConfig(BaseModel):
     def from_env(cls) -> ApiConfig:
         state_dir = os.environ.get("AEGIS_STATE_DIR", ".aegis/demo")
         state = load_chain_state(Path(state_dir)) or {}
+        # the live deployment's chain wins over the generic default
+        chain_id = int(os.environ.get("AEGIS_CHAIN_ID", str(state.get("chain_id", 31337))))
         approval = ApprovalConfig(
             db_path=os.environ.get("AEGIS_DB_PATH", str(Path(state_dir) / "approvals.db")),
             audit_log_path=os.environ.get(
@@ -48,9 +54,9 @@ class ApiConfig(BaseModel):
             ),
             policy_path=os.environ.get("AEGIS_POLICY_PATH", "policies/default.yaml"),
             ttl_seconds=float(os.environ.get("AEGIS_APPROVAL_TTL_SECONDS", "900")),
-            dual_control=os.environ.get("AEGIS_DUAL_CONTROL", "false").lower() == "true",
-            guardian_key=os.environ.get("AEGIS_GUARDIAN_KEY", DEFAULT_GUARDIAN_KEY),
-            chain_id=int(os.environ.get("AEGIS_CHAIN_ID", str(state.get("chain_id", 31337)))),
+            dual_control=env_flag("AEGIS_DUAL_CONTROL", False),
+            guardian_key=guardian_key_from_env(chain_id),
+            chain_id=chain_id,
         )
         cors = os.environ.get("AEGIS_CORS_ORIGINS")
         return cls(

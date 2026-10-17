@@ -20,8 +20,8 @@ from fastapi.testclient import TestClient
 
 from aegis.api import ApiConfig, create_api_app
 from aegis.api.app import parse_eval_report
-from aegis.approval import ApprovalConfig
 from aegis.policy import load_policy
+from tests.helpers import dev_approval_config
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
@@ -32,13 +32,7 @@ BOB = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 
 
 def make_api_config(tmp_path: Path, **overrides) -> ApiConfig:
-    approval = ApprovalConfig(
-        db_path=str(tmp_path / "approvals.db"),
-        audit_log_path=str(tmp_path / "audit.jsonl"),
-        audit_key_file=str(tmp_path / "audit.key"),
-        policy_path=str(POLICY_PATH),
-        ttl_seconds=overrides.pop("ttl_seconds", 900.0),
-    )
+    approval = dev_approval_config(tmp_path, ttl_seconds=overrides.pop("ttl_seconds", 900.0))
     defaults = dict(
         approval=approval,
         state_dir=str(tmp_path),

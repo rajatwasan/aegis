@@ -13,9 +13,12 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
+from aegis import devchain
 from aegis.agent import AegisRuntime, ChainClient
-from aegis.approval import ApprovalConfig, create_app
+from aegis.approval import ApprovalConfig, GuardianSigner, create_app
+from aegis.approval.config import guardian_key_from_env
 from aegis.audit import AuditLog, AuditSigner, MerkleTree, canonical_json
+from aegis.config import ConfigError, validate_hex_key
 from aegis.policy import Operation, Proposal, load_policy
 
 # GuardedToken and ComplianceRegistry are addressed by their forge artifact ABIs.
@@ -120,7 +123,7 @@ class AegisBackend:
 def _require(name: str) -> str:
     value = os.environ.get(name)
     if not value:
-        raise RuntimeError(f"MCP server requires environment variable {name}")
+        raise ConfigError(f"MCP server requires environment variable {name}")
     return value
 
 
@@ -128,13 +131,17 @@ def build_backend_from_env() -> AegisBackend:
     """Assemble the backend from AEGIS_* environment variables.
 
     Required: AEGIS_RPC_URL, AEGIS_TOKEN_ADDRESS, AEGIS_REGISTRY_ADDRESS,
-    AEGIS_OPERATOR_KEY. Optional: AEGIS_GUARDIAN_KEY, AEGIS_CHAIN_ID,
-    AEGIS_POLICY_PATH, AEGIS_DB_PATH, AEGIS_AUDIT_LOG_PATH, AEGIS_AUDIT_KEY_FILE.
+    AEGIS_OPERATOR_KEY, and AEGIS_GUARDIAN_KEY unless the chain is a dev chain
+    (then the anvil dev guardian key is substituted and announced). Optional:
+    AEGIS_CHAIN_ID, AEGIS_POLICY_PATH, AEGIS_DB_PATH, AEGIS_AUDIT_LOG_PATH,
+    AEGIS_AUDIT_KEY_FILE.
     """
     rpc_url = _require("AEGIS_RPC_URL")
-    operator_key = _require("AEGIS_OPERATOR_KEY")
+    operator_key = validate_hex_key(_require("AEGIS_OPERATOR_KEY"), "AEGIS_OPERATOR_KEY")
     token_address = _require("AEGIS_TOKEN_ADDRESS")
     registry_address = _require("AEGIS_REGISTRY_ADDRESS")
+    chain_id = int(os.environ.get("AEGIS_CHAIN_ID", "31337"))
+    devchain.require_not_dev_key(operator_key, "operator", chain_id)
 
     chain = ChainClient(rpc_url, operator_key)
     token = chain.at(_TOKEN_ARTIFACT, token_address)
@@ -142,17 +149,23 @@ def build_backend_from_env() -> AegisBackend:
 
     workdir = Path(os.environ.get("AEGIS_STATE_DIR", ".aegis/mcp"))
     workdir.mkdir(parents=True, exist_ok=True)
-    config_kwargs: dict[str, Any] = {
-        "db_path": os.environ.get("AEGIS_DB_PATH", str(workdir / "approvals.db")),
-        "audit_log_path": os.environ.get("AEGIS_AUDIT_LOG_PATH", str(workdir / "audit.jsonl")),
-        "audit_key_file": os.environ.get("AEGIS_AUDIT_KEY_FILE", str(workdir / "audit.key")),
-        "policy_path": os.environ.get("AEGIS_POLICY_PATH", "policies/default.yaml"),
-        "chain_id": int(os.environ.get("AEGIS_CHAIN_ID", "31337")),
-    }
-    if os.environ.get("AEGIS_GUARDIAN_KEY"):
-        config_kwargs["guardian_key"] = os.environ["AEGIS_GUARDIAN_KEY"]
-    config = ApprovalConfig(**config_kwargs)
+    config = ApprovalConfig(
+        db_path=os.environ.get("AEGIS_DB_PATH", str(workdir / "approvals.db")),
+        audit_log_path=os.environ.get("AEGIS_AUDIT_LOG_PATH", str(workdir / "audit.jsonl")),
+        audit_key_file=os.environ.get("AEGIS_AUDIT_KEY_FILE", str(workdir / "audit.key")),
+        policy_path=os.environ.get("AEGIS_POLICY_PATH", "policies/default.yaml"),
+        chain_id=chain_id,
+        guardian_key=guardian_key_from_env(chain_id),
+    )
     config.ensure_dirs()
+    # the signatures this backend hands out must be the ones the token accepts
+    onchain_guardian = token.functions.guardian().call()
+    signer_address = GuardianSigner(config.guardian_key, chain_id).address
+    if onchain_guardian.lower() != signer_address.lower():
+        raise ConfigError(
+            f"guardian key mismatch: configured signer {signer_address} is not the guardian"
+            f" of token {token_address} (on-chain guardian is {onchain_guardian})"
+        )
 
     approval_client = TestClient(create_app(config))
     audit_signer = AuditSigner.load_or_create(config.audit_key_file)

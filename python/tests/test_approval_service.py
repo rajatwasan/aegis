@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from aegis.approval import ApprovalConfig, create_app
 from aegis.audit import AuditLog, AuditSigner
+from tests.helpers import dev_approval_config
 
 TOKEN = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 ALICE = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
@@ -16,15 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def make_config(tmp_path: Path, **overrides) -> ApprovalConfig:
-    defaults = dict(
-        db_path=str(tmp_path / "approvals.db"),
-        audit_log_path=str(tmp_path / "audit.jsonl"),
-        audit_key_file=str(tmp_path / "audit.key"),
-        policy_path=str(REPO_ROOT / "policies" / "default.yaml"),
-        ttl_seconds=900.0,
-    )
-    defaults.update(overrides)
-    return ApprovalConfig(**defaults)
+    return dev_approval_config(tmp_path, **overrides)
 
 
 @pytest.fixture()

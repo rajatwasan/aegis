@@ -20,19 +20,15 @@ from typing import Any
 from fastapi.testclient import TestClient
 from langgraph.types import Command
 
+from aegis import devchain
 from aegis.agent import AegisRuntime, ChainClient, MockLLM, build_graph
 from aegis.anchoring import StateError
 from aegis.api.config import ApiConfig, load_chain_state
 from aegis.events import EventBus
 
-# anvil's fixed dev accounts, matching the demo/dev deployment
-_ACCOUNTS = {
-    1: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    2: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-    3: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-    4: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
-}
-FROZEN_ACCOUNT = _ACCOUNTS[4]
+# the demo world's parties (anvil accounts seeded by aegis.demo.deploy)
+_ACCOUNTS = devchain.ACCOUNTS
+FROZEN_ACCOUNT = _ACCOUNTS[devchain.FROZEN_INDEX]
 
 
 def _transfer(token: str, operator: str, to: str, amount: int) -> dict[str, Any]:
@@ -121,11 +117,13 @@ class AgentRunner:
                 " start the dev stack (make dev) or run scripts/demo.sh first"
             )
         chain = ChainClient(state["rpc_url"], state["operator_key"])
+        token = chain.at("GuardedToken", state["token_address"])
+        check_guardian_matches(token, self.app.state.signer.address)
         self._runtime = AegisRuntime(
             policy=self.app.state.policy,
             audit=self.app.state.audit,  # the emitting log: decisions hit the bus
             chain=chain,
-            token=chain.at("GuardedToken", state["token_address"]),
+            token=token,
             registry=chain.at("ComplianceRegistry", state["registry_address"]),
             approval_client=TestClient(self.app),
         )
@@ -242,3 +240,22 @@ class AgentRunner:
 
 class UnknownInstructionError(ValueError):
     """The MockLLM has no scripted plan for this instruction."""
+
+
+def check_guardian_matches(token: Any, signer_address: str) -> None:
+    """Refuse to serve a token whose on-chain guardian is not our signer.
+
+    A mismatch means every approval this service signs will revert on chain
+    with ``InvalidGuardianSignature``; better to fail at startup, naming both
+    addresses, than to hand out signatures that cannot execute (AGENTS.md R5).
+    """
+    try:
+        onchain = token.functions.guardian().call()
+    except Exception as exc:  # noqa: BLE001 - any RPC failure: refuse, naming the cause
+        raise StateError(f"cannot read the guardian of token {token.address}: {exc}") from exc
+    if onchain.lower() != signer_address.lower():
+        raise StateError(
+            f"guardian key mismatch: the configured signer {signer_address} is not the"
+            f" guardian of token {token.address} (on-chain guardian is {onchain});"
+            " set AEGIS_GUARDIAN_KEY to the key that deployed this token, or redeploy"
+        )

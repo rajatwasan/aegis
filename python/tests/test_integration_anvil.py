@@ -16,6 +16,7 @@ from aegis.approval import ApprovalConfig, create_app
 from aegis.audit import AuditLog, AuditSigner
 from aegis.policy import load_policy
 from tests.conftest import ACCOUNTS, FROZEN_ACCOUNT, KEYS, OPERATOR, REPO_ROOT
+from tests.helpers import fresh_key
 
 POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
 
@@ -151,3 +152,60 @@ def test_direct_bypass_attempt_reverts_on_chain(stack) -> None:
     chain = stack["runtime"].chain
     with pytest.raises(RuntimeError, match="reverted"):
         chain.transfer(token, ACCOUNTS[1], 50_000)  # above threshold, no authorization
+
+
+def test_deploy_uses_configured_guardian(deployment) -> None:
+    """W1: the token's guardian is whatever key the deployer configured.
+
+    Deploy a second world with a freshly generated guardian. An authorization
+    signed by the anvil dev guardian key is rejected on chain; one signed by
+    the configured key executes.
+    """
+    import time
+
+    from web3.exceptions import ContractLogicError
+
+    from aegis.approval import GuardianSigner, build_authorization
+    from aegis.demo import deploy
+
+    chain = deployment["chain"]
+    fresh = GuardianSigner(fresh_key(), 31337)
+    world = deploy(chain, guardian=fresh, chain_id=31337)
+    token = world["token"]
+    assert token.functions.guardian().call() == fresh.address
+
+    def authorization(decision_id: str) -> dict:
+        return build_authorization(
+            decision_id=decision_id,
+            operation=1,
+            token=token.address,
+            from_addr=OPERATOR,
+            to=ACCOUNTS[1],
+            asset_class=0,
+            amount=50_000,
+            policy_hash="00" * 32,
+            nonce=1,
+            deadline=int(time.time()) + 600,
+        )
+
+    dev_guardian = GuardianSigner(KEYS[9], 31337)
+    auth = authorization("w1-dev-key-must-fail")
+    # ChainClient surfaces a revert as RuntimeError("transaction reverted: ...")
+    with pytest.raises((ContractLogicError, RuntimeError), match="revert"):
+        chain.transfer_with_authorization(token, auth, dev_guardian.sign_authorization(auth))
+    assert token.functions.balanceOf(ACCOUNTS[1]).call() == 0
+
+    auth = authorization("w1-configured-key-executes")
+    receipt = chain.transfer_with_authorization(token, auth, fresh.sign_authorization(auth))
+    assert receipt["status"] == 1
+    assert token.functions.balanceOf(ACCOUNTS[1]).call() == 50_000
+
+
+def test_deploy_refuses_signer_bound_to_another_chain(deployment) -> None:
+
+    from aegis.approval import GuardianSigner
+    from aegis.demo import deploy
+
+    wrong_domain = GuardianSigner(fresh_key(), 84532)
+    with pytest.raises(ValueError, match="bound to chain 84532"):
+        deploy(deployment["chain"], guardian=wrong_domain, chain_id=31337)

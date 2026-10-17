@@ -23,9 +23,12 @@ from typing import Any
 
 from web3 import Web3
 
-from aegis import chains
+from aegis import chains, devchain
 from aegis.agent import ChainClient
-from aegis.demo import ACCOUNTS, KEYS, deploy
+from aegis.approval import GuardianSigner
+from aegis.approval.config import guardian_key_from_env
+from aegis.config import ConfigError
+from aegis.demo import deploy
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -72,10 +75,20 @@ def run(
     reuse: bool = False,
 ) -> int:
     state_dir.mkdir(parents=True, exist_ok=True)
-    operator_key = operator_key or KEYS[0]
 
     chain_id = _detect_chain_id(rpc_url)
     meta = chains.chain_meta(chain_id, chains.explorer_from_env())
+    # a publicly known anvil key never operates or guards a public chain (R3)
+    try:
+        operator_key = devchain.resolve_key(
+            operator_key,
+            role="operator",
+            chain_id=chain_id,
+            dev_key=devchain.dev_operator_key(),
+        )
+        guardian = GuardianSigner(guardian_key_from_env(chain_id), chain_id)
+    except ConfigError as exc:
+        raise DeployError(str(exc)) from exc
     chain = ChainClient(rpc_url, operator_key)
     operator = chain.operator_address
 
@@ -91,6 +104,13 @@ def run(
     if reuse and existing_path.exists():
         existing = json.loads(existing_path.read_text())
         if _reusable(existing, chain, chain_id):
+            recorded = str(existing.get("guardian", "")).lower()
+            if recorded and recorded != guardian.address.lower():
+                raise DeployError(
+                    f"state.json records guardian {existing['guardian']} but the configured"
+                    f" AEGIS_GUARDIAN_KEY derives {guardian.address}; fix the key or remove"
+                    f" {existing_path} to redeploy"
+                )
             print(f"reusing {meta.name} deployment: anchor {existing['anchor_address']}")
             print(f"dev stack state -> {existing_path} (audit log preserved)")
             return 0
@@ -101,7 +121,8 @@ def run(
         (state_dir / stale).unlink(missing_ok=True)
 
     print(f"deploying Aegis suite on {meta.name} (chain {chain_id}) as {operator}")
-    deployment = deploy(chain, operator=operator, chain_id=chain_id)
+    print(f"  guardian {guardian.address}")
+    deployment = deploy(chain, guardian=guardian, operator=operator, chain_id=chain_id)
 
     state = {
         "rpc_url": rpc_url,
@@ -111,7 +132,7 @@ def run(
         "public": meta.public,
         "operator_key": operator_key,
         "operator_address": operator,
-        "guardian": ACCOUNTS[9],
+        "guardian": guardian.address,
         "anchor_address": deployment["anchor"].address,
         "token_address": deployment["token"].address,
         "registry_address": deployment["registry"].address,
@@ -138,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--operator-key",
         default=os.environ.get("AEGIS_DEPLOYER_KEY"),
-        help="funded key that deploys and sends anchors (default: anvil account 0)",
+        help="funded key that deploys and sends anchors (anvil account 0 on a dev chain)",
     )
     parser.add_argument(
         "--reuse",

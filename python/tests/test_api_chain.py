@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from aegis.api import ApiConfig, create_api_app
 from aegis.approval import ApprovalConfig
 from tests.conftest import ACCOUNTS, KEYS, OPERATOR
+from tests.helpers import fresh_key
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
@@ -55,6 +56,61 @@ def chain_app(deployment, tmp_path: Path):
 @pytest.fixture()
 def client(chain_app) -> TestClient:
     return TestClient(chain_app)
+
+
+class TestGuardianIntegrity:
+    def test_runtime_refuses_guardian_mismatch(self, deployment, tmp_path: Path) -> None:
+        """W1: a signer that is not the token's guardian cannot serve the console.
+
+        The deployment fixture's token is guarded by the anvil dev key; serving
+        it with a different (fresh) guardian key must fail at runtime
+        construction, naming both addresses, instead of handing out signatures
+        that revert on chain.
+        """
+        from eth_account import Account
+
+        from aegis.anchoring import StateError
+
+        other_key = fresh_key()
+        anchor = deployment["chain"].deploy("AuditAnchor", OPERATOR)
+        state = {
+            "rpc_url": deployment["rpc_url"],
+            "chain_id": 31337,
+            "operator_key": KEYS[0],
+            "anchor_address": anchor.address,
+            "token_address": deployment["token"].address,
+            "registry_address": deployment["registry"].address,
+            "audit_log_path": str(tmp_path / "audit.jsonl"),
+            "audit_key_file": str(tmp_path / "audit.key"),
+        }
+        (tmp_path / "state.json").write_text(json.dumps(state))
+        app = create_api_app(
+            ApiConfig(
+                approval=ApprovalConfig(
+                    db_path=str(tmp_path / "approvals.db"),
+                    audit_log_path=str(tmp_path / "audit.jsonl"),
+                    audit_key_file=str(tmp_path / "audit.key"),
+                    policy_path=str(POLICY_PATH),
+                    guardian_key=other_key,
+                ),
+                state_dir=str(tmp_path),
+                evals_report_path=str(tmp_path / "none.md"),
+            )
+        )
+        with pytest.raises(StateError) as excinfo:
+            app.state.runner.runtime()
+        message = str(excinfo.value)
+        assert "guardian key mismatch" in message
+        assert Account.from_key(other_key).address in message
+        assert Account.from_key(KEYS[9]).address in message
+
+        # and the HTTP surface fails closed rather than 500ing
+        client = TestClient(app)
+        res = client.post("/agent/run", json={"instruction": "Pay the vendor invoice batch"})
+        assert res.status_code == 503
+        assert "guardian key mismatch" in res.json()["detail"]
+        standing = client.get(f"/compliance/{ACCOUNTS[1]}").json()
+        assert standing["known"] is False
 
 
 def seed_records(app, n: int = 3) -> list[dict]:
