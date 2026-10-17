@@ -37,10 +37,13 @@ make demo            # headless end-to-end on a throwaway anvil, exits 0 on succ
 make dev             # anvil + API + Guardian Console at http://localhost:5173
 ```
 
-`make dev` boots the whole stack in the foreground and opens the human side of
-the loop: fire a canned instruction from the Console screen, watch the agent's
-steps stream in, approve the escalation it produces, and verify the decision
-against the on-chain anchor — without touching a terminal.
+`make dev` boots the whole stack in the foreground and prints an approver
+token for the approver `dev`. Paste it into the console's token field, then
+fire a canned instruction from the Console screen, watch the agent's steps
+stream in, approve the escalation it produces, and verify the decision against
+the on-chain anchor — without touching a terminal. Every approve and reject is
+authenticated: the service derives the approver from the token and records
+who approved, and how, in the audit log.
 
 `make demo` spins up anvil, deploys the suite, and runs a scripted agent batch:
 
@@ -86,8 +89,10 @@ LLM proposal ─► typed tools ─► policy engine ─► ALLOW  ─► transf
 - **Audit log** (`python/aegis/audit/`): append-only JSONL, hash-chained,
   Ed25519-signed, with a sha256 Merkle tree and inclusion proofs.
 - **Approval service** (`python/aegis/approval/`): FastAPI HITL API with
-  idempotency, TTL auto-reject, optional dual-control, a single-file HTML
-  approval page, and the guardian EIP-712 signer.
+  authenticated approvers (bearer tokens per named human; the approver id is
+  derived from the credential, never from the request), idempotency, TTL
+  auto-reject, optional dual-control, a single-file HTML approval page, and
+  the guardian EIP-712 signer.
 - **Agent** (`python/aegis/agent/`): a LangGraph graph (supervisor → gate →
   execute | interrupt → resume) with a typed tool registry and pluggable LLM
   providers — `MockLLM` (deterministic, used everywhere in CI) and the optional
@@ -112,8 +117,8 @@ SSE for everything live).
 **Approvals** — the queue of escalations: why each one escalated (matched rule
 ids with their human-readable conditions and the `policyHash`), both parties'
 on-chain compliance/freeze standing, a live TTL countdown, dual-control
-progress, and approve/reject with a required comment. `j`/`k` walk the queue,
-`a`/`r` act on the focused row.
+progress, and approve/reject with your approver token and a required comment.
+`j`/`k` walk the queue, `a`/`r` act on the focused row.
 
 ![Approvals queue with the decision drawer](docs/screenshots/approvals.png)
 

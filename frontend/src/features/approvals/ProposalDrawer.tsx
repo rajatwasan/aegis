@@ -20,12 +20,12 @@ import { cn, operationName } from "../../lib/format";
  */
 export function ProposalDrawer({
   decisionId,
-  approver,
+  token,
   intent = null,
   onClose,
 }: {
   decisionId: string;
-  approver: string;
+  token: string;
   /** Set by the a/r shortcuts: focuses the comment and arms Enter-to-act. */
   intent?: "approve" | "reject" | null;
   onClose: () => void;
@@ -67,7 +67,7 @@ export function ProposalDrawer({
         ) : (
           <DrawerBody
             row={detail.data}
-            approver={approver}
+            token={token}
             intent={intent}
             onClose={onClose}
           />
@@ -79,12 +79,12 @@ export function ProposalDrawer({
 
 function DrawerBody({
   row,
-  approver,
+  token,
   intent,
   onClose,
 }: {
   row: ProposalRow;
-  approver: string;
+  token: string;
   intent: "approve" | "reject" | null;
   onClose: () => void;
 }) {
@@ -152,6 +152,7 @@ function DrawerBody({
             {row.approvals.map((a) => (
               <li key={a.approver} className="flex items-baseline gap-2 text-[13px]">
                 <span className="font-medium">{a.approver}</span>
+                <span className="text-[11px] text-ink-faint">via {a.auth}</span>
                 <span className="text-ink-dim">{a.comment}</span>
                 <span className="ml-auto">
                   <TimeAgo value={a.ts} />
@@ -165,7 +166,7 @@ function DrawerBody({
       {row.status === "pending" && (
         <ActionForm
           row={row}
-          approver={approver}
+          token={token}
           intent={intent}
           onClose={onClose}
         />
@@ -226,12 +227,12 @@ function PartyLine({ label, address }: { label: string; address: string }) {
 
 function ActionForm({
   row,
-  approver,
+  token,
   intent,
   onClose,
 }: {
   row: ProposalRow;
-  approver: string;
+  token: string;
   intent: "approve" | "reject" | null;
   onClose: () => void;
 }) {
@@ -240,13 +241,13 @@ function ActionForm({
   const [comment, setComment] = useState("");
 
   const busy = approve.isPending || reject.isPending;
-  const disabled = busy || approver.trim() === "" || comment.trim() === "";
+  const disabled = busy || token.trim() === "" || comment.trim() === "";
   const error = approve.error ?? reject.error;
 
   const act = (action: "approve" | "reject") => {
     const mutation = action === "approve" ? approve : reject;
     mutation.mutate(
-      { decisionId: row.decision_id, approver: approver.trim(), comment: comment.trim() },
+      { decisionId: row.decision_id, token: token.trim(), comment: comment.trim() },
       {
         onSuccess: (data) => {
           // dual control: the first approval leaves it pending for a second
@@ -259,9 +260,9 @@ function ActionForm({
   return (
     <div className="mt-auto border-t border-edge px-5 py-4">
       {error !== null && <ErrorState message={error.message} />}
-      {approver.trim() === "" && (
+      {token.trim() === "" && (
         <p className="mb-2 text-xs text-warn">
-          set your name in &ldquo;acting as&rdquo; above to act on proposals
+          paste your approver token above to act on proposals
         </p>
       )}
       <label className="block text-xs text-ink-dim" htmlFor="decision-comment">

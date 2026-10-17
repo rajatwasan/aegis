@@ -11,18 +11,41 @@ import {
   makeVerifyResponse,
 } from "./fixtures";
 
+/** The token the test approver "casey" holds; see fixtures. */
+export const CASEY_TOKEN = "casey-token-0123456789abcdef0123456789";
+
+/**
+ * The real service answers 401 without a valid bearer token (AGENTS.md R4);
+ * every write handler in the suite enforces the same so a regression that
+ * drops the header fails here, not in production.
+ */
+export function requireBearer(
+  request: Request,
+): HttpResponse<{ detail: string }> | null {
+  const header = request.headers.get("authorization");
+  if (header !== `Bearer ${CASEY_TOKEN}`) {
+    return HttpResponse.json(
+      { detail: "approver token not recognised" },
+      { status: 401, headers: { "WWW-Authenticate": "Bearer" } },
+    );
+  }
+  return null;
+}
+
 export const handlers = [
   http.get(`${API_URL}/metrics`, () => HttpResponse.json(makeMetrics())),
   http.get(`${API_URL}/proposals`, () => HttpResponse.json([makeProposal()])),
   http.get(`${API_URL}/proposals/:id`, ({ params }) =>
     HttpResponse.json(makeProposal({ decision_id: String(params.id) })),
   ),
-  http.post(`${API_URL}/proposals/:id/approve`, ({ params }) =>
+  http.post(`${API_URL}/proposals/:id/approve`, ({ request, params }) =>
+    requireBearer(request) ??
     HttpResponse.json(
       makeProposal({ decision_id: String(params.id), status: "approved" }),
     ),
   ),
-  http.post(`${API_URL}/proposals/:id/reject`, ({ params }) =>
+  http.post(`${API_URL}/proposals/:id/reject`, ({ request, params }) =>
+    requireBearer(request) ??
     HttpResponse.json(
       makeProposal({ decision_id: String(params.id), status: "rejected" }),
     ),

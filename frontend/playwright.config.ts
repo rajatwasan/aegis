@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { E2E_APPROVER_ID, E2E_APPROVER_TOKEN } from "./e2e/token";
 
 /**
  * E2E smoke over the real stack: anvil + deployed contracts + API + vite,
@@ -26,5 +27,10 @@ export default defineConfig({
     stdout: "ignore",
     stderr: "pipe",
     timeout: 120_000,
+    env: {
+      ...process.env,
+      // approvals are authenticated; the spec pastes this token into the console
+      AEGIS_APPROVER_TOKENS: `${E2E_APPROVER_ID}:${E2E_APPROVER_TOKEN}`,
+    },
   },
 });

@@ -16,7 +16,7 @@ from aegis.approval import ApprovalConfig, create_app
 from aegis.audit import AuditLog, AuditSigner
 from aegis.policy import load_policy
 from tests.conftest import ACCOUNTS, FROZEN_ACCOUNT, KEYS, OPERATOR, REPO_ROOT
-from tests.helpers import fresh_key
+from tests.helpers import TOKENS, bearer, fresh_key
 
 POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
 
@@ -32,6 +32,7 @@ def stack(deployment, tmp_path: Path):
         policy_path=str(POLICY_PATH),
         guardian_key=KEYS[9],
         chain_id=31337,
+        approver_tokens=TOKENS,
     )
     approval_client = TestClient(create_app(config))
     audit_signer = AuditSigner.load_or_create(tmp_path / "audit.key")
@@ -93,7 +94,9 @@ def test_end_to_end_batch(stack) -> None:
 
     # human approves via the API
     res = stack["approval"].post(
-        f"/proposals/{decision_id}/approve", json={"approver": "ops-1", "comment": "reviewed"}
+        f"/proposals/{decision_id}/approve",
+        json={"comment": "reviewed"},
+        headers=bearer("ops-1"),
     )
     assert res.json()["status"] == "approved"
 
@@ -137,7 +140,7 @@ def test_rejected_escalation_never_executes(stack) -> None:
 
     state = graph.invoke({"instructions": ["a", "b"], "results": []}, config)
     decision_id = state["results"][0]["decision_id"]
-    stack["approval"].post(f"/proposals/{decision_id}/reject", json={"approver": "ops-1"})
+    stack["approval"].post(f"/proposals/{decision_id}/reject", json={}, headers=bearer("ops-1"))
 
     state = graph.invoke(Command(resume="rejected"), config)
     outcome = state["results"][-1]

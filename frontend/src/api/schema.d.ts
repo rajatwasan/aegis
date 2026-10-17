@@ -255,7 +255,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Approve */
+        /**
+         * Approve
+         * @description Record an approval by the authenticated principal; sign when quorum is met.
+         *
+         *     401 without a valid credential; 404 unknown id; 409 not pending or the
+         *     same principal approving twice (dual control needs two humans); 422 if
+         *     the body carries an ``approver`` field.
+         */
         post: operations["approve_proposals__decision_id__approve_post"];
         delete?: never;
         options?: never;
@@ -272,7 +279,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reject */
+        /**
+         * Reject
+         * @description Reject as the authenticated principal. 401, 404, 409, 422 as for approve.
+         */
         post: operations["reject_proposals__decision_id__reject_post"];
         delete?: never;
         options?: never;
@@ -284,10 +294,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** ActionIn */
+        /**
+         * ActionIn
+         * @description Body of approve/reject. The approver is the authenticated principal, so a
+         *     body that still carries ``approver`` is rejected (422) rather than trusted.
+         */
         ActionIn: {
-            /** Approver */
-            approver: string;
             /**
              * Comment
              * @default

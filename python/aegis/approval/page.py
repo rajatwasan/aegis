@@ -19,7 +19,10 @@ APPROVAL_PAGE = """<!DOCTYPE html>
 </head>
 <body>
 <h1>Aegis — pending approvals</h1>
-<p>Approver: <input id="approver" value="ops-1"> Comment: <input id="comment" size="40"></p>
+<p>Approver token:
+   <input id="token" type="password" autocomplete="off" placeholder="paste your approver token">
+   Comment: <input id="comment" size="40"></p>
+<p id="status" hidden></p>
 <table id="tbl" hidden>
   <thead><tr>
     <th>Decision</th><th>Op</th><th>From</th><th>To</th><th>Class</th><th>Amount</th>
@@ -55,14 +58,32 @@ async function refresh() {
   }
 }
 async function act(id, action) {
-  await fetch(`/proposals/${id}/${action}`, {
+  const status = document.getElementById('status');
+  const token = document.getElementById('token').value.trim();
+  if (!token) {
+    status.hidden = false;
+    status.textContent = 'An approver token is required.';
+    return;
+  }
+  const res = await fetch(`/proposals/${id}/${action}`, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      approver: document.getElementById('approver').value,
-      comment: document.getElementById('comment').value,
-    }),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({comment: document.getElementById('comment').value}),
   });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    status.hidden = false;
+    status.textContent = `${action} failed (${res.status}): ${body.detail ?? 'unknown error'}`;
+  } else {
+    const body = await res.json();
+    const last = body.approvals[body.approvals.length - 1];
+    status.hidden = false;
+    const who = last ? last.approver : 'unknown';
+    status.textContent = `${action} recorded as ${who} (${body.status})`;
+  }
   refresh();
 }
 refresh();

@@ -17,6 +17,17 @@ POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
 DEV_GUARDIAN_KEY = devchain.dev_guardian_key()
 DEV_OPERATOR_KEY = devchain.dev_operator_key()
 
+#: approver tokens the suite uses; long enough for the registry, obviously fake
+TOKENS = {
+    "ops-1": "test-token-ops-1-000000000000000000",
+    "ops-2": "test-token-ops-2-000000000000000000",
+}
+
+
+def bearer(approver_id: str) -> dict[str, str]:
+    """Authorization header for one of the suite's approvers."""
+    return {"Authorization": f"Bearer {TOKENS[approver_id]}"}
+
 
 def dev_approval_config(tmp_path: Path, **overrides) -> ApprovalConfig:
     """An ApprovalConfig rooted in ``tmp_path`` for the anvil dev world."""
@@ -28,6 +39,7 @@ def dev_approval_config(tmp_path: Path, **overrides) -> ApprovalConfig:
         audit_key_file=str(tmp_path / "audit.key"),
         policy_path=str(POLICY_PATH),
         ttl_seconds=900.0,
+        approver_tokens=dict(TOKENS),
     )
     defaults.update(overrides)
     return ApprovalConfig(**defaults)

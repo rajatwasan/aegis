@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from aegis.approval import ApprovalConfig, create_app
 from aegis.audit import AuditLog, AuditSigner
-from tests.helpers import dev_approval_config
+from tests.helpers import bearer, dev_approval_config
 
 TOKEN = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 ALICE = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
@@ -75,7 +75,8 @@ class TestApproval:
         decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
         res = client.post(
             f"/proposals/{decision_id}/approve",
-            json={"approver": "ops-1", "comment": "looks fine"},
+            json={"comment": "looks fine"},
+            headers=bearer("ops-1"),
         )
         assert res.status_code == 200
         body = res.json()
@@ -96,7 +97,7 @@ class TestApproval:
     def test_reject(self, client: TestClient) -> None:
         decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
         res = client.post(
-            f"/proposals/{decision_id}/reject", json={"approver": "ops-1", "comment": "no"}
+            f"/proposals/{decision_id}/reject", json={"comment": "no"}, headers=bearer("ops-1")
         )
         assert res.status_code == 200
         assert res.json()["status"] == "rejected"
@@ -104,15 +105,15 @@ class TestApproval:
 
     def test_approve_after_reject_conflicts(self, client: TestClient) -> None:
         decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        client.post(f"/proposals/{decision_id}/reject", json={"approver": "ops-1"})
-        res = client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-2"})
+        client.post(f"/proposals/{decision_id}/reject", json={}, headers=bearer("ops-1"))
+        res = client.post(f"/proposals/{decision_id}/approve", json={}, headers=bearer("ops-2"))
         assert res.status_code == 409
 
     def test_nonces_increment(self, client: TestClient) -> None:
         ids = [client.post("/proposals", json=proposal_body()).json()["decision_id"] for _ in "ab"]
         nonces = []
         for decision_id in ids:
-            client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
+            client.post(f"/proposals/{decision_id}/approve", json={}, headers=bearer("ops-1"))
             nonces.append(client.get(f"/proposals/{decision_id}").json()["authorization"]["nonce"])
         assert nonces[0] != nonces[1]
 
@@ -127,7 +128,7 @@ class TestExpiry:
     def test_expired_proposal_cannot_be_approved(self, tmp_path: Path) -> None:
         client = TestClient(create_app(make_config(tmp_path, ttl_seconds=0.0)))
         decision_id = client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        res = client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
+        res = client.post(f"/proposals/{decision_id}/approve", json={}, headers=bearer("ops-1"))
         assert res.status_code == 409
 
     def test_expiry_writes_audit_record(self, tmp_path: Path) -> None:
@@ -148,23 +149,32 @@ class TestDualControl:
 
     def test_first_approval_keeps_pending(self, dual_client: TestClient) -> None:
         decision_id = dual_client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        res = dual_client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
+        res = dual_client.post(
+            f"/proposals/{decision_id}/approve", json={}, headers=bearer("ops-1")
+        )
         assert res.json()["status"] == "pending"
         assert res.json()["signature"] is None
 
     def test_same_approver_twice_rejected(self, dual_client: TestClient) -> None:
         decision_id = dual_client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        dual_client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
-        res = dual_client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
+        dual_client.post(f"/proposals/{decision_id}/approve", json={}, headers=bearer("ops-1"))
+        res = dual_client.post(
+            f"/proposals/{decision_id}/approve", json={}, headers=bearer("ops-1")
+        )
         assert res.status_code == 409
 
     def test_two_distinct_approvers_sign(self, dual_client: TestClient) -> None:
         decision_id = dual_client.post("/proposals", json=proposal_body()).json()["decision_id"]
-        dual_client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-1"})
-        res = dual_client.post(f"/proposals/{decision_id}/approve", json={"approver": "ops-2"})
+        dual_client.post(f"/proposals/{decision_id}/approve", json={}, headers=bearer("ops-1"))
+        res = dual_client.post(
+            f"/proposals/{decision_id}/approve", json={}, headers=bearer("ops-2")
+        )
         assert res.json()["status"] == "approved"
         assert res.json()["signature"] is not None
-        assert res.json()["resolution"]["approvers"] == ["ops-1", "ops-2"]
+        assert res.json()["resolution"]["approvers"] == [
+            {"approver": "ops-1", "auth": "token"},
+            {"approver": "ops-2", "auth": "token"},
+        ]
 
 
 class TestHtmlPage:

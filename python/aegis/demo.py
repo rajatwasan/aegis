@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
 import time
 from pathlib import Path
 from typing import Any
@@ -144,6 +145,8 @@ def run(rpc_url: str, state_dir: Path) -> int:
     deployment = deploy(chain, guardian=guardian, chain_id=chain_id)
     token = deployment["token"]
 
+    # the demo stands in for the human; its token lives only in this process
+    demo_token = secrets.token_hex(16)
     config = ApprovalConfig(
         db_path=str(state_dir / "approvals.db"),
         audit_log_path=str(state_dir / "audit.jsonl"),
@@ -151,6 +154,7 @@ def run(rpc_url: str, state_dir: Path) -> int:
         policy_path=str(POLICY_PATH),
         guardian_key=guardian_key,
         chain_id=chain_id,
+        approver_tokens={"demo-operator": demo_token},
     )
     for stale in (state_dir / "approvals.db", state_dir / "audit.jsonl"):
         stale.unlink(missing_ok=True)
@@ -193,11 +197,14 @@ def run(rpc_url: str, state_dir: Path) -> int:
     decision_id = pending[0]["decision_id"]
 
     _rule("[3/5] Human approves the escalated transfer; guardian co-signs (EIP-712)")
-    approval.post(
+    approved = approval.post(
         f"/proposals/{decision_id}/approve",
-        json={"approver": "demo-operator", "comment": "reviewed and approved"},
+        json={"comment": "reviewed and approved"},
+        headers={"Authorization": f"Bearer {demo_token}"},
     )
-    print(f"  approved decision {decision_id}")
+    approved.raise_for_status()
+    who = approved.json()["approvals"][-1]
+    print(f"  approved decision {decision_id} as {who['approver']} (auth: {who['auth']})")
     state = graph.invoke(Command(resume="approved"), graph_config)
     resumed = [r for r in state["results"] if r.get("approval_status") == "approved"]
     print(f"  guardian-signed transfer executed: tx {resumed[0]['tx_hash']}")

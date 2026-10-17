@@ -5,11 +5,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import App from "../../App";
 import { API_URL } from "../../api/client";
 import { makeProposal } from "../../test/fixtures";
-import { server } from "../../test/msw";
+import { CASEY_TOKEN, requireBearer, server } from "../../test/msw";
 import { renderApp } from "../../test/render";
 
 function renderApprovals() {
-  window.localStorage.setItem("aegis.approver", "casey");
+  window.localStorage.setItem("aegis.approver_token", CASEY_TOKEN);
   return renderApp(<App />, { route: "/approvals" });
 }
 
@@ -81,6 +81,8 @@ describe("ApprovalsPage", () => {
     server.use(
       http.get(`${API_URL}/proposals`, () => HttpResponse.json(pending)),
       http.post(`${API_URL}/proposals/:id/approve`, async ({ request, params }) => {
+        const refused = requireBearer(request);
+        if (refused !== null) return refused;
         approvals.push(await request.json());
         pending = [];
         return HttpResponse.json(
@@ -110,7 +112,8 @@ describe("ApprovalsPage", () => {
     await user.click(approveButton);
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(approvals).toEqual([{ approver: "casey", comment: "looks legit" }]);
+    // the body names no approver; the token in the header did (AGENTS.md R4)
+    expect(approvals).toEqual([{ comment: "looks legit" }]);
     await waitFor(() =>
       expect(screen.queryByTestId("proposal-dec-1")).toBeNull(),
     );
@@ -120,6 +123,8 @@ describe("ApprovalsPage", () => {
     const rejections: unknown[] = [];
     server.use(
       http.post(`${API_URL}/proposals/:id/reject`, async ({ request, params }) => {
+        const refused = requireBearer(request);
+        if (refused !== null) return refused;
         rejections.push(await request.json());
         return HttpResponse.json(
           makeProposal({ decision_id: String(params.id), status: "rejected" }),
@@ -136,14 +141,17 @@ describe("ApprovalsPage", () => {
     await user.click(within(drawer).getByRole("button", { name: "Reject" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(rejections).toEqual([
-      { approver: "casey", comment: "wrong counterparty" },
-    ]);
+    expect(rejections).toEqual([{ comment: "wrong counterparty" }]);
   });
 
   it("shows dual-control progress and keeps the drawer open after the first approval", async () => {
     const oneApproval = [
-      { approver: "casey", comment: "first sign-off", ts: Date.now() / 1000 - 30 },
+      {
+        approver: "casey",
+        auth: "token" as const,
+        comment: "first sign-off",
+        ts: Date.now() / 1000 - 30,
+      },
     ];
     server.use(
       http.get(`${API_URL}/proposals`, () =>
@@ -204,6 +212,8 @@ describe("ApprovalsPage", () => {
         ]),
       ),
       http.post(`${API_URL}/proposals/:id/approve`, async ({ request, params }) => {
+        const refused = requireBearer(request);
+        if (refused !== null) return refused;
         approvals.push(await request.json());
         return HttpResponse.json(
           makeProposal({ decision_id: String(params.id), status: "approved" }),
@@ -228,23 +238,62 @@ describe("ApprovalsPage", () => {
 
     await user.keyboard("ship it{Enter}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(approvals).toEqual([{ approver: "casey", comment: "ship it" }]);
+    expect(approvals).toEqual([{ comment: "ship it" }]);
   });
 
-  it("requires an approver identity before acting", async () => {
-    renderApp(<App />, { route: "/approvals" }); // no localStorage name
+  it("requires an approver token before acting", async () => {
+    renderApp(<App />, { route: "/approvals" }); // no token in localStorage
     const user = userEvent.setup();
     await user.click(await screen.findByTestId("proposal-dec-1"));
     const drawer = await screen.findByRole("dialog");
 
     expect(
-      within(drawer).getByText(/set your name in .acting as./),
+      within(drawer).getByText(/paste your approver token above/),
     ).toBeInTheDocument();
     await user.type(
       within(drawer).getByLabelText("comment (required)"),
       "a comment",
     );
     expect(within(drawer).getByRole("button", { name: "Approve" })).toBeDisabled();
+  });
+
+  it("keeps the token out of the page and sends it only as a bearer header", async () => {
+    const seen: string[] = [];
+    server.use(
+      http.post(`${API_URL}/proposals/:id/approve`, ({ request, params }) => {
+        seen.push(request.headers.get("authorization") ?? "");
+        return HttpResponse.json(
+          makeProposal({ decision_id: String(params.id), status: "approved" }),
+        );
+      }),
+    );
+    renderApprovals();
+    const { user, drawer } = await openDrawer();
+
+    // the field is a password input and never renders the token as text
+    const field = screen.getByLabelText("approver token");
+    expect(field).toHaveAttribute("type", "password");
+    expect(screen.queryByText(CASEY_TOKEN)).toBeNull();
+
+    await user.type(within(drawer).getByLabelText("comment (required)"), "ok");
+    await user.click(within(drawer).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(seen).toEqual([`Bearer ${CASEY_TOKEN}`]));
+  });
+
+  it("restores the row and shows the error when the token is refused", async () => {
+    window.localStorage.setItem("aegis.approver_token", "not-the-right-token-0000000000");
+    renderApp(<App />, { route: "/approvals" });
+    const { user, drawer } = await openDrawer();
+
+    await user.type(within(drawer).getByLabelText("comment (required)"), "ok");
+    await user.click(within(drawer).getByRole("button", { name: "Approve" }));
+
+    // 401 from the (default) handler: the drawer stays, the error names the cause,
+    // and the optimistic removal rolls back
+    expect(
+      await within(drawer).findByText(/approver token not recognised/),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("proposal-dec-1")).toBeInTheDocument();
   });
 });
 

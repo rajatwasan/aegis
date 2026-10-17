@@ -5,11 +5,11 @@ import { describe, expect, it } from "vitest";
 import App from "../../App";
 import { API_URL } from "../../api/client";
 import { makeProposal } from "../../test/fixtures";
-import { server } from "../../test/msw";
+import { CASEY_TOKEN, requireBearer, server } from "../../test/msw";
 import { FakeEventSource, renderApp } from "../../test/render";
 
 function renderConsole() {
-  window.localStorage.setItem("aegis.approver", "casey");
+  window.localStorage.setItem("aegis.approver_token", CASEY_TOKEN);
   return renderApp(<App />, { route: "/console" });
 }
 
@@ -90,6 +90,8 @@ describe("ConsolePage", () => {
     server.use(
       http.get(`${API_URL}/proposals`, () => HttpResponse.json(pending)),
       http.post(`${API_URL}/proposals/:id/approve`, async ({ request, params }) => {
+        const refused = requireBearer(request);
+        if (refused !== null) return refused;
         approvals.push(await request.json());
         pending = [];
         return HttpResponse.json(
@@ -123,9 +125,7 @@ describe("ConsolePage", () => {
     await waitFor(() =>
       expect(screen.queryByTestId("escalation-dec-1")).toBeNull(),
     );
-    expect(approvals).toEqual([
-      { approver: "casey", comment: "approved from console" },
-    ]);
+    expect(approvals).toEqual([{ comment: "approved from console" }]);
   });
 
   it("surfaces an unknown-instruction error from the API", async () => {

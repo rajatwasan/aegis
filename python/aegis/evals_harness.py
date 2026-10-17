@@ -29,6 +29,7 @@ Run it with ``make evals`` (``python -m aegis.evals_harness``); it writes
 from __future__ import annotations
 
 import json
+import secrets
 import socket
 import subprocess
 import sys
@@ -158,6 +159,8 @@ def build_runtime(chain: ChainClient, deployment: dict[str, Any], workdir: Path)
         policy_path=str(POLICY_PATH),
         guardian_key=GUARDIAN_KEY,
         chain_id=CHAIN_ID,
+        # the harness never approves anything; the token exists so the service is valid
+        approver_tokens={"evals-never-approves": secrets.token_hex(16)},
     )
     # a fresh db/audit each run so repeated evals are deterministic
     for stale in (workdir / "approvals.db", workdir / "audit.jsonl"):

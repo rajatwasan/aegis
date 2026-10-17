@@ -3,6 +3,11 @@
 Escalated proposals arrive here, wait for a human (or two, in dual-control
 mode), and on approval receive a guardian EIP-712 signature the agent can
 submit on-chain. Every resolution is written to the audit log.
+
+Approving and rejecting require an authenticated principal (AGENTS.md R4):
+an approver bearer token (``aegis.approval.auth``) or, when guardian passkeys
+are mounted, a verified WebAuthn assertion. The approver identity is never
+read from the request body.
 """
 
 from __future__ import annotations
@@ -10,11 +15,12 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from aegis.approval import store as st
+from aegis.approval.auth import ApproverRegistry, Principal, require_approver
 from aegis.approval.config import ApprovalConfig
 from aegis.approval.page import APPROVAL_PAGE
 from aegis.approval.signer import GuardianSigner, authorization_to_json, build_authorization
@@ -37,8 +43,16 @@ class ProposalIn(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+#: module level singleton so the dependency is not constructed per call (ruff B008)
+APPROVER = Depends(require_approver)
+
+
 class ActionIn(BaseModel):
-    approver: str
+    """Body of approve/reject. The approver is the authenticated principal, so a
+    body that still carries ``approver`` is rejected (422) rather than trusted."""
+
+    model_config = ConfigDict(extra="forbid")
+
     comment: str = ""
 
 
@@ -58,6 +72,8 @@ def create_app(config: ApprovalConfig | None = None, bus: EventBus | None = None
     )
     app.state.policy = load_policy(config.policy_path)
     app.state.bus = bus
+    app.state.approvers = ApproverRegistry(config.approver_tokens)
+    app.state.admin_token = config.admin_token
 
     def _emit(event_type: str, row: dict[str, Any]) -> None:
         if bus is not None:
@@ -65,7 +81,9 @@ def create_app(config: ApprovalConfig | None = None, bus: EventBus | None = None
 
     def sweep() -> None:
         for row in app.state.store.expire_older_than(time.time()):
-            _write_audit(row, {"action": "expired", "approver": None, "comment": "ttl"})
+            _write_audit(
+                row, {"action": "expired", "approver": None, "auth": None, "comment": "ttl"}
+            )
             _emit("proposal.expired", row)
 
     def _write_audit(row: dict[str, Any], human_action: dict[str, Any]) -> None:
@@ -124,12 +142,20 @@ def create_app(config: ApprovalConfig | None = None, bus: EventBus | None = None
         return _public(row)
 
     @app.post("/proposals/{decision_id}/approve")
-    def approve(decision_id: str, body: ActionIn) -> dict[str, Any]:
+    def approve(
+        decision_id: str, body: ActionIn, principal: Principal = APPROVER
+    ) -> dict[str, Any]:
+        """Record an approval by the authenticated principal; sign when quorum is met.
+
+        401 without a valid credential; 404 unknown id; 409 not pending or the
+        same principal approving twice (dual control needs two humans); 422 if
+        the body carries an ``approver`` field.
+        """
         sweep()
         row = _pending_or_409(decision_id)
-        if any(a["approver"] == body.approver for a in row["approvals"]):
+        if any(a["approver"] == principal.id for a in row["approvals"]):
             raise HTTPException(409, "approver already recorded for this proposal")
-        row = app.state.store.add_approval(decision_id, body.approver, body.comment)
+        row = app.state.store.add_approval(decision_id, principal.id, body.comment, principal.auth)
 
         required = 2 if config.dual_control else 1
         if len(row["approvals"]) < required:
@@ -152,7 +178,9 @@ def create_app(config: ApprovalConfig | None = None, bus: EventBus | None = None
         signature = app.state.signer.sign_authorization(authorization)
         resolution = {
             "action": "approved",
-            "approvers": [a["approver"] for a in row["approvals"]],
+            "approver": principal.id,
+            "auth": principal.auth,
+            "approvers": [{"approver": a["approver"], "auth": a["auth"]} for a in row["approvals"]],
             "comment": body.comment,
         }
         row = app.state.store.resolve(
@@ -168,10 +196,16 @@ def create_app(config: ApprovalConfig | None = None, bus: EventBus | None = None
         return _public(row)
 
     @app.post("/proposals/{decision_id}/reject")
-    def reject(decision_id: str, body: ActionIn) -> dict[str, Any]:
+    def reject(decision_id: str, body: ActionIn, principal: Principal = APPROVER) -> dict[str, Any]:
+        """Reject as the authenticated principal. 401, 404, 409, 422 as for approve."""
         sweep()
         _pending_or_409(decision_id)
-        resolution = {"action": "rejected", "approver": body.approver, "comment": body.comment}
+        resolution = {
+            "action": "rejected",
+            "approver": principal.id,
+            "auth": principal.auth,
+            "comment": body.comment,
+        }
         row = app.state.store.resolve(decision_id, st.REJECTED, resolution)
         _write_audit(row, resolution)
         _emit("proposal.rejected", row)

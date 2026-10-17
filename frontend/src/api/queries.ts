@@ -161,23 +161,26 @@ export function useRunAgent() {
 
 interface ActOnProposal {
   decisionId: string;
-  approver: string;
+  /** the approver's bearer token; the server derives who they are from it */
+  token: string;
   comment: string;
 }
 
 /**
  * Approve/reject with optimistic removal from the pending list and rollback
  * on failure (F2). The pending row disappears immediately; if the server
- * refuses, it snaps back and the error surfaces.
+ * refuses (including 401 for a bad token), it snaps back and the error
+ * surfaces. The approver is never named in the body (AGENTS.md R4).
  */
 function useProposalAction(action: "approve" | "reject") {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ decisionId, approver, comment }: ActOnProposal) =>
+    mutationFn: ({ decisionId, token, comment }: ActOnProposal) =>
       unwrap(
         api.POST(`/proposals/{decision_id}/${action}`, {
           params: { path: { decision_id: decisionId } },
-          body: { approver, comment },
+          headers: { Authorization: `Bearer ${token}` },
+          body: { comment },
         }),
       ),
     onMutate: async ({ decisionId }) => {

@@ -16,8 +16,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from aegis.approval.config import ApprovalConfig
-from aegis.config import env_flag
+from aegis.approval.config import ApprovalConfig, approver_tokens_from_env
+from aegis.config import env_flag, optional_env
 from aegis.keys import guardian_key_from_env, operator_key_from_env
 from aegis.state import load_chain_state
 
@@ -60,6 +60,8 @@ class ApiConfig(BaseModel):
             dual_control=env_flag("AEGIS_DUAL_CONTROL", False),
             guardian_key=guardian_key_from_env(chain_id),
             chain_id=chain_id,
+            approver_tokens=approver_tokens_from_env(),
+            admin_token=optional_env("AEGIS_ADMIN_TOKEN"),
         )
         cors = os.environ.get("AEGIS_CORS_ORIGINS")
         operator_key = operator_key_from_env(chain_id) if state else None

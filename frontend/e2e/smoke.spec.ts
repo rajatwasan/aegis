@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { E2E_APPROVER_TOKEN } from "./token";
 
 const API_URL = "http://127.0.0.1:8000";
 const SHOT = { dir: "../docs/screenshots" };
@@ -12,9 +13,9 @@ test("canned instruction -> escalation -> approval -> executed -> PROOF OK", asy
   page,
   request,
 }) => {
-  // --- console: identity + canned instruction
+  // --- console: approver token + canned instruction
   await page.goto("/console");
-  await page.getByPlaceholder("your name").fill("playwright");
+  await page.getByLabel("approver token").fill(E2E_APPROVER_TOKEN);
   await page
     .getByRole("button", { name: "Send 50,000 AGD to the treasury desk" })
     .click();
@@ -39,6 +40,8 @@ test("canned instruction -> escalation -> approval -> executed -> PROOF OK", asy
   await row.click();
   await expect(page.getByRole("dialog")).toContainText("escalate-large-transfer");
   await expect(page.getByRole("dialog")).toContainText("compliant");
+  // approvals screen shares the stored token: the drawer is ready to act
+  await expect(page.getByRole("dialog")).not.toContainText("paste your approver token");
   await page.screenshot({ path: `${SHOT.dir}/approvals.png` });
   await page.keyboard.press("Escape");
 
@@ -48,6 +51,17 @@ test("canned instruction -> escalation -> approval -> executed -> PROOF OK", asy
   await card.getByRole("textbox").fill("looks right, approved in e2e");
   await card.getByRole("button", { name: "Approve" }).click();
   await expect(steps).toContainText("human approved — resuming");
+
+  // the approval was recorded as the token's principal, not a typed name
+  const resolved = await request.get(`${API_URL}/proposals/${decisionId}`);
+  const proposal = (await resolved.json()) as {
+    status: string;
+    approvals: { approver: string; auth: string }[];
+  };
+  expect(proposal.status).toBe("approved");
+  expect(proposal.approvals).toEqual([
+    expect.objectContaining({ approver: "e2e", auth: "token" }),
+  ]);
   await expect(steps).toContainText("run complete");
   await page.screenshot({ path: `${SHOT.dir}/console.png` });
 

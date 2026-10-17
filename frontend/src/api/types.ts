@@ -37,7 +37,10 @@ export interface ProposalPayload {
 }
 
 export interface ApprovalEntry {
+  /** principal id the server derived from the credential */
   approver: string;
+  /** how the principal proved who they are */
+  auth: "token" | "passkey";
   comment: string;
   ts: number;
 }

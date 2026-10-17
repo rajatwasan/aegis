@@ -12,6 +12,7 @@ import json
 import tempfile
 from pathlib import Path
 
+from aegis import devchain
 from aegis.api import ApiConfig, create_api_app
 from aegis.approval import ApprovalConfig
 
@@ -27,6 +28,9 @@ def main() -> int:
                 audit_log_path=f"{tmp}/audit.jsonl",
                 audit_key_file=f"{tmp}/audit.key",
                 policy_path=str(REPO_ROOT / "policies" / "default.yaml"),
+                # schema generation only; nothing is served and nothing is signed
+                guardian_key=devchain.dev_guardian_key(),
+                approver_tokens={"schema": "schema-generation-only-token-000"},
             ),
             state_dir=tmp,
         )

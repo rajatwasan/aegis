@@ -24,7 +24,14 @@ FRESH_KEY = fresh_key()
 
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    for name in ("AEGIS_GUARDIAN_KEY", "AEGIS_CHAIN_ID", "AEGIS_STATE_DIR", "AEGIS_DUAL_CONTROL"):
+    for name in (
+        "AEGIS_GUARDIAN_KEY",
+        "AEGIS_CHAIN_ID",
+        "AEGIS_STATE_DIR",
+        "AEGIS_DUAL_CONTROL",
+        "AEGIS_APPROVER_TOKENS",
+        "AEGIS_ADMIN_TOKEN",
+    ):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -98,9 +105,21 @@ class TestGuardianKeyFromEnv:
 
     def test_api_config_from_env_dev_chain_without_state(self, monkeypatch, tmp_path: Path) -> None:
         monkeypatch.setenv("AEGIS_STATE_DIR", str(tmp_path))
+        monkeypatch.setenv("AEGIS_APPROVER_TOKENS", "dev:" + "x" * 32)
         config = ApiConfig.from_env()
         assert config.approval.guardian_key == DEV_GUARDIAN_KEY
         assert config.approval.chain_id == 31337
+        assert config.approval.approver_tokens == {"dev": "x" * 32}
+
+    def test_api_config_from_env_requires_approver_tokens(
+        self, monkeypatch, tmp_path: Path
+    ) -> None:
+        """W3: a service nobody can approve on is a misconfiguration, not a default."""
+        monkeypatch.setenv("AEGIS_STATE_DIR", str(tmp_path))
+        monkeypatch.delenv("AEGIS_APPROVER_TOKENS", raising=False)
+        with pytest.raises(ConfigError) as excinfo:
+            ApiConfig.from_env()
+        assert "AEGIS_APPROVER_TOKENS" in str(excinfo.value)
 
 
 class TestPrimitives:

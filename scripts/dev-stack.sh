@@ -47,6 +47,20 @@ fi
 
 "$VENV_PY" -m aegis.devstack --rpc-url "$RPC_URL" --state-dir "$STATE_DIR"
 
+# Approvals are authenticated (AGENTS.md R4). The dev stack mints a token for
+# the approver "dev" unless the caller set AEGIS_APPROVER_TOKENS, and an admin
+# token for pairing passkeys unless AEGIS_ADMIN_TOKEN is set. Both live only in
+# this process and are printed once below.
+if [ -z "${AEGIS_APPROVER_TOKENS:-}" ]; then
+  DEV_TOKEN="$("$VENV_PY" -c 'import secrets; print(secrets.token_hex(16))')"
+  export AEGIS_APPROVER_TOKENS="dev:${DEV_TOKEN}"
+else
+  DEV_TOKEN="${AEGIS_APPROVER_TOKENS#*:}"
+fi
+if [ -z "${AEGIS_ADMIN_TOKEN:-}" ]; then
+  export AEGIS_ADMIN_TOKEN="$("$VENV_PY" -c 'import secrets; print(secrets.token_hex(16))')"
+fi
+
 export AEGIS_STATE_DIR="$STATE_DIR"
 export AEGIS_API_PORT="$API_PORT"
 "$VENV_PY" -m aegis.api &
@@ -54,6 +68,8 @@ PIDS+=($!)
 
 echo
 echo "Guardian Console: http://localhost:5173  (API on :${API_PORT}, RPC on :${PORT})"
+echo "Approver token (paste into the console's token field): ${DEV_TOKEN}"
+echo "Admin token (pairing codes):                           ${AEGIS_ADMIN_TOKEN}"
 echo "Ctrl-C stops everything."
 echo
 (cd frontend && exec npm run dev)

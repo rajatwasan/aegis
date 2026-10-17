@@ -2,20 +2,15 @@
   "components": {
     "schemas": {
       "ActionIn": {
+        "additionalProperties": false,
+        "description": "Body of approve/reject. The approver is the authenticated principal, so a\nbody that still carries ``approver`` is rejected (422) rather than trusted.",
         "properties": {
-          "approver": {
-            "title": "Approver",
-            "type": "string"
-          },
           "comment": {
             "default": "",
             "title": "Comment",
             "type": "string"
           }
         },
-        "required": [
-          "approver"
-        ],
         "title": "ActionIn",
         "type": "object"
       },
@@ -938,6 +933,12 @@
         "title": "VerifyResponse",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "ApproverToken": {
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -1464,6 +1465,7 @@
     },
     "/proposals/{decision_id}/approve": {
       "post": {
+        "description": "Record an approval by the authenticated principal; sign when quorum is met.\n\n401 without a valid credential; 404 unknown id; 409 not pending or the\nsame principal approving twice (dual control needs two humans); 422 if\nthe body carries an ``approver`` field.",
         "operationId": "approve_proposals__decision_id__approve_post",
         "parameters": [
           {
@@ -1510,11 +1512,17 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "ApproverToken": []
+          }
+        ],
         "summary": "Approve"
       }
     },
     "/proposals/{decision_id}/reject": {
       "post": {
+        "description": "Reject as the authenticated principal. 401, 404, 409, 422 as for approve.",
         "operationId": "reject_proposals__decision_id__reject_post",
         "parameters": [
           {
@@ -1561,6 +1569,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "ApproverToken": []
+          }
+        ],
         "summary": "Reject"
       }
     }

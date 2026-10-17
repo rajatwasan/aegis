@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from aegis.api import ApiConfig, create_api_app
 from aegis.approval import ApprovalConfig
 from tests.conftest import ACCOUNTS, KEYS, OPERATOR
-from tests.helpers import fresh_key
+from tests.helpers import TOKENS, bearer, fresh_key
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = REPO_ROOT / "policies" / "default.yaml"
@@ -44,6 +44,7 @@ def chain_app(deployment, tmp_path: Path):
             audit_key_file=str(tmp_path / "audit.key"),
             policy_path=str(POLICY_PATH),
             guardian_key=KEYS[9],
+            approver_tokens=TOKENS,
         ),
         operator_key=KEYS[0],
         state_dir=str(tmp_path),
@@ -93,6 +94,7 @@ class TestGuardianIntegrity:
                     audit_key_file=str(tmp_path / "audit.key"),
                     policy_path=str(POLICY_PATH),
                     guardian_key=other_key,
+                    approver_tokens=TOKENS,
                 ),
                 operator_key=KEYS[0],
                 state_dir=str(tmp_path),
@@ -151,6 +153,7 @@ class TestGuardianIntegrity:
                     audit_key_file=str(tmp_path / "audit.key"),
                     policy_path=str(POLICY_PATH),
                     guardian_key=KEYS[9],
+                    approver_tokens=TOKENS,
                 ),
                 operator_key=KEYS[0],
                 state_dir=str(tmp_path),
@@ -185,6 +188,7 @@ class TestGuardianIntegrity:
                     audit_key_file=str(tmp_path / "audit.key"),
                     policy_path=str(POLICY_PATH),
                     guardian_key=KEYS[9],
+                    approver_tokens=TOKENS,
                 ),
                 state_dir=str(tmp_path),
                 evals_report_path=str(tmp_path / "none.md"),
@@ -374,7 +378,8 @@ class TestAgentRun:
 
         approve = client.post(
             f"/proposals/{decision_id}/approve",
-            json={"approver": "console-tester", "comment": "reviewed"},
+            json={"comment": "reviewed"},
+            headers=bearer("ops-1"),
         )
         assert approve.status_code == 200
 

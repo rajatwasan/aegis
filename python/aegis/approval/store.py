@@ -88,12 +88,15 @@ class ProposalStore:
             ).fetchall()
         return [self._to_dict(r) for r in rows]
 
-    def add_approval(self, decision_id: str, approver: str, comment: str) -> dict[str, Any]:
+    def add_approval(
+        self, decision_id: str, approver: str, comment: str, auth: str
+    ) -> dict[str, Any]:
+        """Record one approval by an authenticated principal (``auth`` names the method)."""
         with self._lock, self._conn:
             row = self.get(decision_id)
             assert row is not None
             approvals = row["approvals"] + [
-                {"approver": approver, "comment": comment, "ts": time.time()}
+                {"approver": approver, "auth": auth, "comment": comment, "ts": time.time()}
             ]
             self._conn.execute(
                 "UPDATE proposals SET approvals = ? WHERE decision_id = ?",
