@@ -2,7 +2,7 @@
 
 ## Context
 
-FRONTEND.md milestone F0 names REST/SSE endpoints for the Guardian Console and
+docs/history/2026-07-frontend-spec.md milestone F0 names REST/SSE endpoints for the Guardian Console and
 instructs: where the spec names an endpoint that exists differently in the
 code, adapt the spec to the code and record the mapping. The existing code has
 an approval service (`aegis.approval.app`), a hash-chained audit log, a pure

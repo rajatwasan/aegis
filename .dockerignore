@@ -9,6 +9,8 @@ frontend/dist
 frontend/test-results
 contracts/out
 contracts/cache
-run.log
-loop.out
-nohup.out
+docs
+frontend
+evals/corpus.yaml
+evals/harness.py
+.github

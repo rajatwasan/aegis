@@ -1,26 +1,24 @@
-# Optional convenience for running the local stack. Nothing in tests or the
-# demo requires docker; anvil and uvicorn are spawned directly by fixtures.
+# Optional convenience: run the hosted image locally. Nothing in tests or the
+# demo requires docker; anvil and uvicorn are spawned directly by fixtures and
+# scripts. Without AEGIS_RPC_URL and AEGIS_DEPLOYER_KEY in .env, start.sh runs
+# an anvil inside the container and deploys there (a disposable local chain).
+# Configuration comes from a local .env (copy .env.example and fill it in);
+# nothing secret lives in this file.
 services:
-  anvil:
-    image: ghcr.io/foundry-rs/foundry:latest
-    entrypoint: ["anvil", "--host", "0.0.0.0"]
-    ports:
-      - "8545:8545"
-
-  approval:
+  api:
     build:
       context: .
-      dockerfile_inline: |
-        FROM python:3.12-slim
-        WORKDIR /app
-        COPY requirements.lock .
-        RUN pip install -r requirements.lock
-        COPY python/ python/
-        RUN pip install -e python/
-        CMD ["uvicorn", "aegis.approval.app:app", "--host", "0.0.0.0", "--port", "8000"]
-    ports:
-      - "8000:8000"
+      dockerfile: deploy/Dockerfile
+    env_file:
+      - .env
     environment:
-      AEGIS_RPC_URL: http://anvil:8545
-    depends_on:
-      - anvil
+      AEGIS_API_HOST: 0.0.0.0
+      AEGIS_API_PORT: "8080"
+      AEGIS_STATE_DIR: /data/aegis
+    ports:
+      - "8080:8080"
+    volumes:
+      - aegis_data:/data
+
+volumes:
+  aegis_data:

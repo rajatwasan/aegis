@@ -18,3 +18,5 @@ loop.out
 .env*
 # local Claude Code state: settings.local.json and linked worktrees
 .claude/
+nohup.out
+aegis_profile.json
