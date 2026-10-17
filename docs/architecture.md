@@ -91,7 +91,7 @@ flowchart TB
 - **Console API + event bus** — `aegis.api` extends the approval service (one
   process, one store, one audit log) with read models (`/decisions`,
   `/audit/records`, `/audit/verify/{id}`, `/policy`, `/metrics`,
-  `/compliance/{address}`), `POST /agent/run` for keyless canned agent runs,
+  `/compliance/{address}`), `POST /agent/run` for agent runs (scripted demo plans by default, a model when `AEGIS_LLM=anthropic`),
   and an in-process event bus streamed to the browser as SSE (`GET /events`):
   `proposal.*`, `decision.recorded`, `anchor.created`, `agent.step`.
 - **Guardian Console** (`frontend/`) — the human control surface: a typed
@@ -99,8 +99,16 @@ flowchart TB
   the SSE stream (no polling), and screens for the approvals queue, live
   activity, audit chain + Merkle verification, policy, and a command console
   that shows the whole instruct → escalate → approve → execute loop on one
-  screen. The browser holds no keys; approving is an authenticated intent the
-  service turns into a guardian signature server-side.
+  screen. The browser holds no keys, only the approver's bearer token, sent as
+  an `Authorization` header; approving is an authenticated intent the service
+  turns into a guardian signature server-side.
+- **Approver authentication** (`aegis.approval.auth`, `aegis.guardian_touch`) —
+  every approve and reject carries a principal: a bearer token issued to a
+  named approver (constant-time lookup over `AEGIS_APPROVER_TOKENS`) or a
+  WebAuthn passkey assertion over the exact decision, verified server-side.
+  The principal id and method land on the approval row and in the audit
+  record; dual control compares principals. Pairing a passkey requires a code
+  minted by the operator (admin token or `aegis guardian pair-code`).
 
 ## Decision sequence
 
@@ -129,7 +137,8 @@ sequenceDiagram
         RT->>API: POST /proposals
         RT->>Log: append(pending_approval)
         Note over Graph: LangGraph interrupt — agent pauses
-        H->>API: approve(decision_id)
+        H->>API: approve(decision_id) + bearer token or passkey assertion
+        API->>API: authenticate principal
         API->>API: build Authorization + guardian EIP-712 sign
         API->>Log: append(approved)
         Graph->>RT: resume(decision_id)
@@ -178,6 +187,7 @@ the record is untampered *and* included under the anchored root.
 | --- | --- | --- | --- |
 | LLM → runtime | LLM output | typed tools + policy | schema validation, deterministic evaluate() |
 | runtime → chain | proposed op | consumed authorization | `GuardianModule` signature + field checks |
+| human → approval | approve / reject | authenticated principal | bearer token per approver, or passkey assertion bound to the decision |
 | approval → chain | proposal | guardian signature | EIP-712 over the exact struct |
 | audit → verifier | JSONL file | anchored root | hash chain + Merkle proof vs on-chain root |
 

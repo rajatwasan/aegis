@@ -53,13 +53,17 @@ human approval and a guardian signature.** Aegis is designed so that claim holds
 | 3 | **T**ampering | Mutate an audit record | Hash chain + Ed25519 signature + Merkle root anchored on-chain; `aegis verify` fails on any edit | Pre-anchor records rely on the signing key; anchor promptly |
 | 4 | **T**ampering | Swap the policy after approval | `policyHash` bound into the signed `Authorization`; mismatch is detectable | Admin can ship a bad policy (#11) |
 | 5 | **T**ampering | Smuggle extra tool fields (`bypass_policy`, fake `signature`) | Pydantic schemas ignore unknown fields; the chain ignores anything not in the struct | None |
-| 6 | **R**epudiation | Deny who approved what | Approver id + comment recorded; audit signed and anchored | Depends on approver auth in a real deployment |
+| 6 | **R**epudiation | Deny who approved what | Approver is an authenticated principal (token per named approver, or passkey assertion over the exact decision); its id and method are inside the signed, anchored audit record | A shared or leaked token attributes approvals to its id; issue one token per human |
 | 7 | **I**nfo disclosure | Coax the agent to leak the guardian key | The runtime/agent never holds the key; it lives only in the approval service | Key custody hardening is deployment-specific |
 | 8 | **I**nfo disclosure / **E**oP | Approval-service or guardian-key compromise | Key isolated from the agent; rotation via admin; dual-control mode needs two approvers | **Full compromise defeats the gate — out of scope to prevent, only to contain** |
 | 9 | **D**enial of service | Flood escalations to exhaust approvers | TTL auto-reject (default 15 min); nothing executes on timeout | Availability of approvals is not guaranteed (fails safe/closed) |
 | 10 | **D**oS | Spam the chain / gas grief | Local anvil; per-tx gas caps | Real-network economics out of scope |
 | 11 | **E**oP | Malicious contract admin rotates guardian to attacker | Admin is a trusted role; events on every rotation; monitor on-chain | Trusted-admin assumption; use a multisig in production |
 | 12 | **E**oP | Social-engineer the human approver (fake urgency/tickets) | Approver sees raw proposal + policy result; comments are advisory only | Human judgment is the residual control |
+| 13 | **S**poofing | Approve without being an approver (forged body field, replayed request) | No approver field accepted (422); bearer token or passkey required (401); dual control compares principals | Token theft (#14) |
+| 14 | **I**nfo disclosure | Steal an approver token (browser storage, logs, screen) | Token sent only as a header, never logged or rendered; password field; revoke by rotating `AEGIS_APPROVER_TOKENS` | A thief can approve as that id until rotation; prefer passkeys for high-value flows |
+| 15 | **E**oP | Enrol an attacker passkey | Pairing codes minted only with the admin token or on the host; single use, 5 minute TTL; RP id bound to the console origin | Admin token compromise |
+| 16 | **I**nfo disclosure | Read a private key from the state file or a dev default | Keys come from the environment only; a `state.json` containing a key is refused; anvil keys refused on public chains; `check_hygiene.sh` in CI | Environment compromise on the host |
 
 ## Explicitly in scope: malicious / compromised LLM and prompt injection
 
@@ -73,8 +77,9 @@ either get refused at the typed-tool boundary, denied by policy, or escalated to
 a human; none auto-executes a gated move. See [../evals/report.md](../evals/report.md).
 
 The reason this works: prompt injection can change what the agent *asks for*, but
-not what the chain *accepts*. The gate is a signature the agent cannot forge and
-a human it cannot impersonate.
+not what the chain *accepts*. The gate is a signature the agent cannot forge,
+issued only after an authenticated human approves; the agent holds no approver
+credential.
 
 ## Residual risks (accepted)
 

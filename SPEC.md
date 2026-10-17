@@ -345,6 +345,22 @@ Every environment variable the system reads. "Required" means `from_env` raises 
 
 ## 7. Work items
 
+Status at revision 2026-10-17 (stacked branches `hardening/00` to `hardening/09`):
+
+| Item | Branch | State |
+| --- | --- | --- |
+| W0 formatting | `hardening/00-forge-fmt` | done |
+| W6 residue (merged first, no code paths) | `hardening/01-residue` | done |
+| W1 guardian key | `hardening/02-guardian-key` | done |
+| W2 operator key | `hardening/03-operator-key` | done |
+| W3 approver auth | `hardening/04-approver-auth` | done |
+| W4 passkeys merged | `hardening/05-passkeys` | done |
+| W5 real model | `hardening/06-real-llm` | done |
+| W7 dev defaults | `hardening/07-dev-defaults` | done |
+| W8 hygiene and CI | `hardening/08-hygiene-ci` | done |
+| W9 docs | `hardening/09-docs-truth` | done |
+| W10 public chain verified | none (owner action) | open |
+
 Ordered. Each item is one branch and one PR (R37). "Depends on" must be merged first. Every item ends with the full local gate green (R20) and the PR template (section 9) filled.
 
 ### W0. Formatting under current Foundry (P1, no behaviour change)
@@ -480,9 +496,11 @@ Depends on: W1, W2, W7.
 
 | Suite | Command | Count at revision `4657e58` | Owner of failures |
 | --- | --- | --- | --- |
-| Contracts | `cd contracts && forge fmt --check && forge test` | 50 | contracts changes |
-| Python | `.venv/bin/ruff check python/ && .venv/bin/ruff format --check python/ && .venv/bin/pytest python/tests -q` | 154 | all Python changes; anvil must be on `PATH` |
-| Frontend | `cd frontend && npm run lint && npm run typecheck && npm test` | 52 | frontend changes |
+| Contracts | `cd contracts && forge fmt --check && forge test` | 50 (unchanged at 2026-10-17) | contracts changes |
+| Python | `.venv/bin/ruff check python/ && .venv/bin/ruff format --check python/ && .venv/bin/pytest python/tests -q` | 154 (245 at 2026-10-17) | all Python changes; anvil must be on `PATH` |
+| Frontend | `cd frontend && npm run lint && npm run typecheck && npm test` | 52 (64 at 2026-10-17) | frontend changes |
+| Hygiene and scripts | `make test-scripts` | added 2026-10-17 | any change |
+| Coverage floors | `make coverage` | added 2026-10-17 | Python changes |
 | Evals | `make evals` | 51 cases, bypass 0 | policy, tools, contracts |
 | Demo | `make demo` | exit 0 | end to end |
 | E2E | `make e2e` | 1 | console changes (local Chrome) |

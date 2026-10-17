@@ -12,7 +12,43 @@ on-chain, and a CLI proves any single decision's inclusion.
 
 The guarantee is enforced **below the model**: even a fully prompt-injected
 agent cannot move gated assets, because the token contract reverts without a
-guardian signature the agent cannot forge and a human it cannot impersonate.
+guardian signature the agent cannot forge, and the guardian signs only after an
+authenticated human approves (a per-approver bearer token or a passkey bound to
+the exact decision; the agent holds neither).
+
+## What this is, and what it is not
+
+**It is** a working prototype of an authority and evidence layer: a policy
+gate, an authenticated human approval step, a guardian signer the agent never
+touches, an on-chain gate that reverts without that signature, and an audit
+log a third party can verify.
+
+**It is not**:
+
+- **Zero knowledge.** There are no ZK circuits or proofs here. "Proof" in this
+  repository means a sha256 Merkle inclusion proof of an audit record against
+  a root stored on chain, plus Ed25519 signatures on records and EIP-712
+  signatures on authorizations.
+- **MPC or threshold signing.** One guardian key signs. Dual control means two
+  distinct authenticated approvers must approve before that key signs.
+- **Key custody.** The guardian key is a secret in the approval service's
+  environment. Production custody (HSM, KMS) is a deployment concern.
+- **Audited.** Neither the contracts nor the services have had a third-party
+  security review.
+
+## Status
+
+| Layer | Tests | Notes |
+| --- | --- | --- |
+| Contracts (`forge test`) | 50, incl. fuzz and an invariant | guardian gate, single-use decisions, field matching |
+| Python (`pytest`) | 245 | policy 100% branch; approval, audit, passkeys >= 95% line |
+| Console (`vitest`) | 64 | plus one Playwright end-to-end run (`make e2e`) |
+| Adversarial evals | 51 cases, bypass 0/49 | gullible model obeys every injection |
+
+Open items and decisions live in [SPEC.md](SPEC.md) (work items W0 to W10,
+decisions in section 11). The rules every change follows are in
+[AGENTS.md](AGENTS.md). A public-chain deployment has not yet been recorded
+as verified end to end (SPEC W10).
 
 ## Why
 
@@ -147,11 +183,53 @@ A Playwright smoke test (`make e2e`, uses your local Chrome) boots the full
 stack and drives exactly this loop: instruction → escalation → approval →
 executed transfer → PROOF OK.
 
+## The guarantee, precisely
+
+A gated move (amount above the threshold, or a non-compliant or frozen party)
+reverts with `GuardianRequired()` on the plain path. The only other path is
+`transferWithAuthorization`, which consumes an `Authorization` that must:
+
+1. be signed by the token's **current guardian** (rotation is admin only);
+2. carry a **decision id never consumed before** (no replay);
+3. be **within its deadline**;
+4. match **every call parameter** (token, from, to, asset class, amount, operation).
+
+The approval service holds the guardian key and signs only when an
+authenticated principal approves: a bearer token issued to a named approver,
+or a WebAuthn passkey assertion over `sha256(decision_id || canonical_json(proposal))`.
+The approver identity is derived from that credential, never from the request
+body. With dual control, two distinct principals are required. No approval, a
+rejection, or an expired proposal means no signature, so nothing moves.
+
+What this does not protect against is stated in
+[docs/threat-model.md](docs/threat-model.md): compromise of the approval service
+or the guardian key, a malicious contract admin, a stolen approver token, and
+a human approving something they should not.
+
+## Evidence
+
+Every decision (policy verdict, approval, rejection, expiry, execution) is one
+append-only JSONL record carrying the proposal, the policy result with matched
+rules and the policy hash, the human action with the approver id and the
+method (`token` or `passkey`), the passkey assertion when there was one,
+`prev_hash`, `record_hash = sha256(canonical_json(record))` and an Ed25519
+signature. `aegis anchor` seals unanchored records under one Merkle root in
+`AuditAnchor`; `aegis verify <decision-id>` needs no key and prints `PROOF OK`
+only when the record is untampered **and** included under the root read back
+from chain.
+
+`PROOF OK` on a local dev chain proves only that the server agrees with
+itself. An anchor on a public chain is checkable by someone who does not trust
+the server.
+
 ## Design highlights
 
 - **The key is never where the agent is.** The guardian key lives only in the
   approval service; the agent and MCP clients hold nothing that moves gated
-  assets.
+  assets, and no key is ever written to `state.json`.
+- **No default secrets.** A missing guardian key, operator key, approver
+  tokens or policy on a public chain is a startup error naming the variable;
+  anvil's publicly known keys are accepted only on a dev chain.
 - **Deterministic gate.** Policy decisions are a pure function of proposal +
   on-chain context + a hashed policy file — reproducible, testable, and bound
   into each authorization via `policyHash`.
@@ -161,7 +239,7 @@ executed transfer → PROOF OK.
   `aegis verify` recomputes the hash and Merkle proof and checks it against the
   on-chain root.
 - **Independently checkable.** Point the runtime at a public chain
-  (`AEGIS_RPC_URL` + a funded `AEGIS_DEPLOYER_KEY`, e.g. Base Sepolia) and every
+  (`AEGIS_RPC_URL` + a funded `AEGIS_OPERATOR_KEY`, e.g. Base Sepolia) and every
   anchor is a transaction on a block explorer — the console links to it from the
   proof, so a viewer can confirm the root without trusting the server. On a local
   dev chain there is no explorer and the console says so
