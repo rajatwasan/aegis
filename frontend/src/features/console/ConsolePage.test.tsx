@@ -14,6 +14,25 @@ function renderConsole() {
 }
 
 describe("ConsolePage", () => {
+  it("labels who runs the agent: the scripted demo or a named model", async () => {
+    renderConsole();
+    expect(await screen.findByTestId("agent-provider")).toHaveTextContent(
+      "agent: scripted demo",
+    );
+  });
+
+  it("names the model when one is configured", async () => {
+    server.use(
+      http.get(`${API_URL}/agent/instructions`, () =>
+        HttpResponse.json({ provider: "anthropic", model: "claude-test", instructions: [] }),
+      ),
+    );
+    renderConsole();
+    expect(await screen.findByTestId("agent-provider")).toHaveTextContent(
+      "agent: claude-test",
+    );
+  });
+
   it("offers the three canned instructions as chips", async () => {
     renderConsole();
     expect(

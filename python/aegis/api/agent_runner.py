@@ -22,6 +22,7 @@ from langgraph.types import Command
 
 from aegis import devchain
 from aegis.agent import AegisRuntime, ChainClient, MockLLM, build_graph
+from aegis.agent.llm import AnthropicLLM, provider_from_env
 from aegis.anchoring import StateError
 from aegis.api.config import ApiConfig, load_chain_state
 from aegis.events import EventBus
@@ -141,20 +142,38 @@ class AgentRunner:
         return runtime
 
     def start(self, instruction: str) -> AgentRun:
-        """Validate the instruction, then run the agent in a worker thread."""
+        """Validate the instruction, then run the agent in a worker thread.
+
+        With AEGIS_LLM=anthropic the configured model reads the instruction and
+        proposes one action through the same gate. Otherwise the scripted
+        MockLLM runs a canned plan, and anything else is a 400 naming the set.
+        """
         runtime, state = self._ensure_runtime()
-        plans = canned_plans(state["token_address"], runtime.chain.operator_address)
-        entry = plans.get(_normalize(instruction))
-        if entry is None:
-            known = ", ".join(f"'{_title(k)}'" for k in plans)
-            raise UnknownInstructionError(
-                f"the keyless MockLLM only understands the canned instructions: {known}"
-            )
+        provider = provider_from_env()
+        if isinstance(provider, MockLLM):
+            plans = canned_plans(state["token_address"], runtime.chain.operator_address)
+            entry = plans.get(_normalize(instruction))
+            if entry is None:
+                known = ", ".join(f"'{_title(k)}'" for k in plans)
+                raise UnknownInstructionError(
+                    f"the scripted demo provider only runs the canned instructions: {known};"
+                    " set AEGIS_LLM=anthropic to run any instruction through a model"
+                )
+            plan = list(entry["plan"])
+            llm: Any = MockLLM(script=plan)
+            instructions = [f"{instruction} [step {i + 1}]" for i in range(len(plan))]
+        else:
+            llm = provider
+            # one model action per run: the gate, not the model, decides what moves
+            instructions = [
+                f"{instruction}\n(token: {state['token_address']},"
+                f" operator: {runtime.chain.operator_address})"
+            ]
 
         run = AgentRun(run_id=str(uuid.uuid4()), instruction=instruction)
         self.runs[run.run_id] = run
         run.thread = threading.Thread(
-            target=self._run, args=(run, runtime, list(entry["plan"])), daemon=True
+            target=self._run, args=(run, runtime, llm, instructions), daemon=True
         )
         run.thread.start()
         return run
@@ -174,10 +193,10 @@ class AgentRunner:
             {"run_id": run.run_id, "instruction": run.instruction, "phase": phase, **data},
         )
 
-    def _run(self, run: AgentRun, runtime: AegisRuntime, plan: list[dict[str, Any]]) -> None:
+    def _run(self, run: AgentRun, runtime: AegisRuntime, llm: Any, instructions: list[str]) -> None:
         with self._lock:
             try:
-                self._drive(run, runtime, plan)
+                self._drive(run, runtime, llm, instructions)
                 run.status = "finished"
             except Exception as exc:  # noqa: BLE001 - surfaced as an event
                 run.status = "failed"
@@ -186,15 +205,14 @@ class AgentRunner:
                 return
             self._step(run, "finished", results=run.results)
 
-    def _drive(self, run: AgentRun, runtime: AegisRuntime, plan: list[dict[str, Any]]) -> None:
-        graph = build_graph(MockLLM(script=plan), runtime)
+    def _drive(
+        self, run: AgentRun, runtime: AegisRuntime, llm: Any, instructions: list[str]
+    ) -> None:
+        graph = build_graph(llm, runtime)
         graph_config = {"configurable": {"thread_id": run.run_id}}
-        self._step(run, "started", steps_planned=len(plan))
+        self._step(run, "started", steps_planned=len(instructions))
 
-        payload: Any = {
-            "instructions": [f"{run.instruction} [step {i + 1}]" for i in range(len(plan))],
-            "results": [],
-        }
+        payload: Any = {"instructions": list(instructions), "results": []}
         while True:
             pending_decision: str | None = None
             for chunk in graph.stream(payload, graph_config, stream_mode="updates"):
@@ -276,3 +294,11 @@ def check_guardian_matches(token: Any, signer_address: str) -> None:
             f" guardian of token {token.address} (on-chain guardian is {onchain});"
             " set AEGIS_GUARDIAN_KEY to the key that deployed this token, or redeploy"
         )
+
+
+def provider_info() -> dict[str, str | None]:
+    """What the console should say runs the agent: the scripted demo or a model."""
+    provider = provider_from_env()
+    if isinstance(provider, AnthropicLLM):
+        return {"provider": "anthropic", "model": provider.model}
+    return {"provider": "mock", "model": None}

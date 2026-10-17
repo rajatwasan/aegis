@@ -56,6 +56,9 @@ def validate_action(action: dict[str, Any]) -> tuple[str, BaseModel] | tuple[str
     tool = action.get("tool")
     if tool == "done":
         return "done", None
+    if tool == "malformed":  # a model reply the provider could not read
+        reason = (action.get("args") or {}).get("reason", "unreadable model reply")
+        raise UnknownToolError(f"malformed model reply: {reason}")
     if not isinstance(tool, str) or tool not in TOOL_SCHEMAS:
         raise UnknownToolError(f"unknown tool: {tool!r}")
     try:

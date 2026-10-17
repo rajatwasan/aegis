@@ -30,7 +30,12 @@ from fastapi.responses import StreamingResponse
 
 from aegis import anchoring, chains
 from aegis.anchoring import StateError
-from aegis.api.agent_runner import AgentRunner, UnknownInstructionError, canned_instructions
+from aegis.api.agent_runner import (
+    AgentRunner,
+    UnknownInstructionError,
+    canned_instructions,
+    provider_info,
+)
 from aegis.api.config import ApiConfig, load_chain_state
 from aegis.api.describe import describe_rule
 from aegis.api.models import (
@@ -305,7 +310,8 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
     @app.get("/agent/instructions", response_model=CannedInstructionsResponse)
     def get_canned_instructions() -> CannedInstructionsResponse:
         return CannedInstructionsResponse(
-            instructions=[CannedInstruction(**c) for c in canned_instructions()]
+            **provider_info(),
+            instructions=[CannedInstruction(**c) for c in canned_instructions()],
         )
 
     return app

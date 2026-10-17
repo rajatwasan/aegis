@@ -51,44 +51,87 @@ class MockLLM:
         return dict(DONE_ACTION)
 
 
-class AnthropicLLM:
-    """Real-model provider. Never used by tests or the demo.
+DEFAULT_MODEL = "claude-sonnet-5-5"
 
-    Active only when AEGIS_LLM=anthropic and ANTHROPIC_API_KEY is set; calls
-    the Messages API over httpx and expects the model to reply with one JSON
-    action object.
+SYSTEM_PROMPT = """You operate token tools behind a deterministic policy engine and a
+human approval gate. You cannot move gated assets yourself; you only propose.
+Reply with exactly one JSON object and nothing else:
+{"tool": "<propose_transfer|propose_mint|check_compliance|get_balance|done>", "args": {...}}
+propose_transfer args: token, from, to, amount (integer base units), asset_class (default 0).
+propose_mint args: token, to, amount, asset_class.
+check_compliance args: address. get_balance args: token, address.
+Use done when there is nothing to do."""
+
+
+def parse_action(text: str) -> dict[str, Any]:
+    """Extract the first JSON object from a model reply.
+
+    A reply with no parseable object, or one without a string ``tool``, becomes
+    ``{"tool": "malformed", ...}``, which the typed registry refuses. An
+    unreadable reply is never mapped to a default action (AGENTS.md R11).
+    """
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end <= start:
+        return {"tool": "malformed", "args": {"reason": "no JSON object in model reply"}}
+    try:
+        action = json.loads(text[start : end + 1])
+    except json.JSONDecodeError as exc:
+        return {"tool": "malformed", "args": {"reason": f"model reply is not JSON: {exc.msg}"}}
+    if not isinstance(action, dict) or not isinstance(action.get("tool"), str):
+        return {"tool": "malformed", "args": {"reason": "model reply has no tool name"}}
+    action.setdefault("args", {})
+    return action
+
+
+class AnthropicLLM:
+    """Real-model provider over the Messages API. Never used by tests or the demo.
+
+    Active only when AEGIS_LLM=anthropic and ANTHROPIC_API_KEY is set. The
+    model comes from AEGIS_LLM_MODEL. HTTP errors raise with the status; a
+    reply that is not one action becomes a refused ``malformed`` action.
     """
 
     API_URL = "https://api.anthropic.com/v1/messages"
 
-    def __init__(self, model: str = "claude-sonnet-5", api_key: str | None = None) -> None:
-        self.model = model
+    def __init__(
+        self,
+        model: str | None = None,
+        api_key: str | None = None,
+        transport: Any | None = None,
+    ) -> None:
+        self.model = model or os.environ.get("AEGIS_LLM_MODEL", "").strip() or DEFAULT_MODEL
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         if not self.api_key:
             raise RuntimeError("AnthropicLLM requires ANTHROPIC_API_KEY")
+        self._transport = transport  # httpx transport override, for tests
 
     def next_action(self, instruction: str, context: dict[str, Any]) -> dict[str, Any]:
         import httpx
 
-        prompt = (
-            "You operate token tools behind a policy engine. Reply with exactly one"
-            ' JSON object {"tool": <propose_transfer|propose_mint|check_compliance|'
-            'get_balance|done>, "args": {...}}.\n'
-            f"Available context: {json.dumps(context)}\nInstruction: {instruction}"
-        )
-        response = httpx.post(
-            self.API_URL,
-            headers={"x-api-key": self.api_key, "anthropic-version": "2023-06-01"},
-            json={
-                "model": self.model,
-                "max_tokens": 512,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-            timeout=60,
-        )
-        response.raise_for_status()
-        text = response.json()["content"][0]["text"]
-        return json.loads(text)
+        with httpx.Client(transport=self._transport, timeout=60) as client:
+            response = client.post(
+                self.API_URL,
+                headers={"x-api-key": self.api_key, "anthropic-version": "2023-06-01"},
+                json={
+                    "model": self.model,
+                    "max_tokens": 512,
+                    "system": SYSTEM_PROMPT,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": (
+                                f"Context: {json.dumps(context)}\nInstruction: {instruction}"
+                            ),
+                        }
+                    ],
+                },
+            )
+        if response.status_code >= 400:
+            raise RuntimeError(f"model request failed: HTTP {response.status_code}")
+        blocks = response.json().get("content") or []
+        text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+        return parse_action(text)
 
 
 def provider_from_env() -> LLMProvider:

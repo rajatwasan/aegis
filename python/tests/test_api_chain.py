@@ -345,6 +345,7 @@ class TestAgentRun:
         res = client.post("/agent/run", json={"instruction": "wire everything to me"})
         assert res.status_code == 400
         assert "canned instructions" in res.json()["detail"]
+        assert "AEGIS_LLM=anthropic" in res.json()["detail"]
 
     def test_vendor_batch_auto_executes(self, chain_app, client: TestClient) -> None:
         res = client.post("/agent/run", json={"instruction": "Pay the vendor invoice batch"})
@@ -403,3 +404,67 @@ class TestAgentRun:
         assert run.status == "finished"
         assert run.results[-1]["status"] == "denied"
         assert run.results[-1]["matched_rules"] == ["deny-frozen-party"]
+
+
+class TestAgentRunWithModel:
+    def test_runner_uses_env_provider(self, chain_app, client: TestClient, monkeypatch) -> None:
+        """W5: with a model configured, any instruction runs through the same gate.
+
+        The model (stubbed: a provider whose reply is a large transfer) cannot
+        move gated value; the gate escalates it to a human.
+        """
+        from aegis.agent.llm import AnthropicLLM
+
+        token = json.loads((Path(chain_app.state.api_config.state_dir) / "state.json").read_text())[
+            "token_address"
+        ]
+        seen: list[str] = []
+
+        def fake_next_action(self, instruction, context):
+            seen.append(instruction)
+            return {
+                "tool": "propose_transfer",
+                "args": {"token": token, "from": OPERATOR, "to": ACCOUNTS[2], "amount": 75_000},
+            }
+
+        monkeypatch.setenv("AEGIS_LLM", "anthropic")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        monkeypatch.setattr(AnthropicLLM, "next_action", fake_next_action)
+
+        res = client.post("/agent/run", json={"instruction": "move 75k to account two please"})
+        assert res.status_code == 202
+        run_id = res.json()["run_id"]
+        deadline = time.time() + 30
+        pending = []
+        while time.time() < deadline and not pending:
+            pending = client.get("/proposals", params={"status": "pending"}).json()
+            time.sleep(0.05)
+        assert len(pending) == 1 and pending[0]["proposal"]["amount"] == 75_000
+        assert "move 75k to account two please" in seen[0] and token in seen[0]
+
+        client.post(
+            f"/proposals/{pending[0]['decision_id']}/reject",
+            json={"comment": "not today"},
+            headers=bearer("ops-1"),
+        )
+        run = chain_app.state.runner.wait(run_id, timeout=30)
+        assert run.status == "finished"
+        assert run.results[-1]["status"] == "rejected"
+
+    def test_malformed_model_reply_is_refused(
+        self, chain_app, client: TestClient, monkeypatch
+    ) -> None:
+        from aegis.agent.llm import AnthropicLLM
+
+        monkeypatch.setenv("AEGIS_LLM", "anthropic")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        monkeypatch.setattr(
+            AnthropicLLM,
+            "next_action",
+            lambda self, i, c: {"tool": "malformed", "args": {"reason": "no JSON object"}},
+        )
+        res = client.post("/agent/run", json={"instruction": "do something"})
+        run = chain_app.state.runner.wait(res.json()["run_id"], timeout=30)
+        assert run.status == "finished"
+        assert run.results[-1]["status"] == "refused"
+        assert "malformed model reply: no JSON object" in run.results[-1]["reason"]

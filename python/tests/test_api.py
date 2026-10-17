@@ -245,6 +245,17 @@ class TestAgentInstructions:
         assert len(chips) == 3
         assert "Send 50,000 AGD to the treasury desk" in chips
 
+    def test_instructions_carry_provider(self, client: TestClient, monkeypatch) -> None:
+        """W5: the console can say whether a script or a model runs the agent."""
+        monkeypatch.delenv("AEGIS_LLM", raising=False)
+        body = client.get("/agent/instructions").json()
+        assert body["provider"] == "mock" and body["model"] is None
+        monkeypatch.setenv("AEGIS_LLM", "anthropic")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+        monkeypatch.setenv("AEGIS_LLM_MODEL", "claude-test")
+        body = client.get("/agent/instructions").json()
+        assert body["provider"] == "anthropic" and body["model"] == "claude-test"
+
 
 def _free_port() -> int:
     with socket.socket() as sock:

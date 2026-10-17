@@ -509,6 +509,10 @@ export interface components {
         CannedInstructionsResponse: {
             /** Instructions */
             instructions: components["schemas"]["CannedInstruction"][];
+            /** Model */
+            model?: string | null;
+            /** Provider */
+            provider: string;
         };
         /** ChainStatus */
         ChainStatus: {

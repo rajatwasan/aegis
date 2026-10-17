@@ -122,10 +122,13 @@ progress, and approve/reject with your approver token and a required comment.
 
 ![Approvals queue with the decision drawer](docs/screenshots/approvals.png)
 
-**Console** — the full loop on one screen: a canned instruction runs the real
-LangGraph agent (keyless MockLLM), its steps stream in on the left, the
-escalation appears on the right with inline approve, and the resumed
-execution streams back.
+**Console** — the full loop on one screen: an instruction runs the real
+LangGraph agent, its steps stream in on the left, the escalation appears on
+the right with inline approve, and the resumed execution streams back. By
+default the agent is a scripted demo (no key; the three chips run fixed plans
+and the console labels it "scripted demo"). With `AEGIS_LLM=anthropic` and
+`ANTHROPIC_API_KEY` set, a model reads any instruction and proposes one action
+through the same gate; the console names the model.
 
 ![Command console mid-run](docs/screenshots/console.png)
 

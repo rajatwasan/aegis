@@ -83,6 +83,8 @@ export const handlers = [
   ),
   http.get(`${API_URL}/agent/instructions`, () =>
     HttpResponse.json({
+      provider: "mock",
+      model: null,
       instructions: [
         {
           instruction: "Pay the vendor invoice batch",

@@ -83,7 +83,22 @@ export function ConsolePage() {
             Run
           </button>
         </form>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {canned.data !== undefined && (
+            <span
+              data-testid="agent-provider"
+              title={
+                canned.data.provider === "mock"
+                  ? "scripted demo: the chips run fixed plans; set AEGIS_LLM=anthropic for a model"
+                  : "a model proposes; the policy gate and a human decide"
+              }
+              className="rounded border border-edge px-2 py-0.5 font-mono text-[11px] text-ink-faint"
+            >
+              {canned.data.provider === "mock"
+                ? "agent: scripted demo"
+                : `agent: ${canned.data.model ?? canned.data.provider}`}
+            </span>
+          )}
           {(canned.data?.instructions ?? []).map((chip) => (
             <button
               key={chip.instruction}

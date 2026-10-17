@@ -171,4 +171,7 @@ class CannedInstruction(BaseModel):
 
 
 class CannedInstructionsResponse(BaseModel):
+    #: "mock" runs scripted canned plans; "anthropic" runs any instruction
+    provider: str
+    model: str | None = None
     instructions: list[CannedInstruction]

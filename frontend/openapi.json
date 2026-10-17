@@ -347,9 +347,25 @@
             },
             "title": "Instructions",
             "type": "array"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
           }
         },
         "required": [
+          "provider",
           "instructions"
         ],
         "title": "CannedInstructionsResponse",
