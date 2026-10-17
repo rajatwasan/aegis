@@ -35,6 +35,7 @@ is the authoritative list; the ones a deployment needs today:
 | `AEGIS_GUARDIAN_KEY` | the guardian signing key held by the approval service | generate one (below); never reuse the deployer key |
 | `AEGIS_APPROVER_TOKENS` | one bearer token per named approver, `id:token,id:token` | tokens are at least 24 characters; each human gets their own id so the audit log names who approved; rotate by redeploying the secret |
 | `AEGIS_ADMIN_TOKEN` | operator token that mints passkey pairing codes | at least 24 characters; only the operator holds it |
+| `AEGIS_RP_ID`, `AEGIS_EXPECTED_ORIGIN` | WebAuthn relying party for guardian passkeys | the console's host and origin (not the API's); required on a public chain |
 | `AEGIS_CORS_ORIGINS` | the console origin(s), comma separated | the static host's URL |
 | `AEGIS_STATE_DIR` | where `state.json`, the audit log and anchors live | `/data/aegis`, on the persistent volume |
 | `AEGIS_API_HOST`, `AEGIS_API_PORT` | bind address | `0.0.0.0`, `8080` in the image |
@@ -74,6 +75,8 @@ fly secrets set --app <app-name> \
   AEGIS_GUARDIAN_KEY=0x... \
   AEGIS_APPROVER_TOKENS=ops-1:...,ops-2:... \
   AEGIS_ADMIN_TOKEN=... \
+  AEGIS_RP_ID=<console-host> \
+  AEGIS_EXPECTED_ORIGIN=https://<console-host> \
   AEGIS_CORS_ORIGINS=https://<console-host>
 fly deploy --app <app-name>
 ```

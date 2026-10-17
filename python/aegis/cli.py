@@ -118,7 +118,46 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("decision_id", nargs="?", help="audit record decision id")
     verify.add_argument("--all", action="store_true", help="verify every anchored record")
 
+    guardian = sub.add_parser("guardian", help="guardian passkey administration")
+    guardian_sub = guardian.add_subparsers(dest="guardian_command", required=True)
+    pair = guardian_sub.add_parser(
+        "pair-code", help="mint a single use pairing code directly in the approval store"
+    )
+    pair.add_argument(
+        "--db",
+        default=None,
+        help="approval sqlite db (default: $AEGIS_DB_PATH or <state-dir>/approvals.db)",
+    )
+    pair.add_argument("--ttl", type=float, default=300.0, help="seconds the code lives")
+
     return parser
+
+
+def cmd_pair_code(db_path: Path, ttl_seconds: float) -> int:
+    """Operator path to a pairing code without the admin token: requires
+    filesystem access to the approval store, which is already operator only."""
+    import secrets
+    import sqlite3
+
+    from aegis.approval.store import ProposalStore
+    from aegis.guardian_touch.store import GuardianStore
+
+    if not db_path.exists():
+        print(f"error: no approval store at {db_path}", file=sys.stderr)
+        return 2
+    ProposalStore(str(db_path))  # ensure the proposals table exists for the migration
+    store = GuardianStore(str(db_path))
+    alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    for _ in range(5):
+        code = "".join(secrets.choice(alphabet) for _ in range(6))
+        try:
+            store.create_pairing_code(code, ttl_seconds)
+        except sqlite3.IntegrityError:
+            continue
+        print(code)
+        return 0
+    print("error: could not allocate a pairing code", file=sys.stderr)
+    return 2
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -129,6 +168,9 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_anchor(state_dir)
         if args.command == "verify":
             return cmd_verify(state_dir, args.decision_id, args.all)
+        if args.command == "guardian" and args.guardian_command == "pair-code":
+            db = args.db or os.environ.get("AEGIS_DB_PATH") or str(state_dir / "approvals.db")
+            return cmd_pair_code(Path(db), args.ttl)
     except (StateError, ConfigError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

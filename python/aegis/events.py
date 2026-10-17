@@ -91,6 +91,7 @@ class EmittingAuditLog(AuditLog):
         human_action: dict[str, Any] | None = None,
         decision_id: str | None = None,
         ts: str | None = None,
+        human_presence: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         record = super().append(
             actor=actor,
@@ -99,6 +100,7 @@ class EmittingAuditLog(AuditLog):
             human_action=human_action,
             decision_id=decision_id,
             ts=ts,
+            human_presence=human_presence,
         )
         self.bus.publish("decision.recorded", record)
         return record

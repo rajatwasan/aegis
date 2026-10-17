@@ -55,6 +55,7 @@ from aegis.api.models import (
 )
 from aegis.approval.app import create_app
 from aegis.events import EventBus
+from aegis.guardian_touch import mount_guardian_touch
 
 _SSE_KEEPALIVE_SECONDS = 15.0
 
@@ -67,6 +68,7 @@ def create_api_app(config: ApiConfig | None = None) -> FastAPI:
     app.title = "Aegis Guardian Console API"
     app.state.api_config = config
     app.state.runner = AgentRunner(config, bus, app)
+    mount_guardian_touch(app)
 
     app.add_middleware(
         CORSMiddleware,

@@ -1,9 +1,14 @@
 import { Link, useParams } from "react-router-dom";
 import { useAuditRecord, useVerifyDecision } from "../../api/queries";
-import type { AuditRecordItem, VerifyResponse } from "../../api/types";
+import {
+  asHumanPresence,
+  type AuditRecordItem,
+  type VerifyResponse,
+} from "../../api/types";
 import { Page } from "../../components/layout/Page";
 import { Badge } from "../../components/ui/Badge";
 import { ExplorerLink, TxLink } from "../../components/ui/ExplorerLink";
+import { HumanPresenceBadge } from "../../components/ui/HumanPresence";
 import { HashChip } from "../../components/ui/Mono";
 import { ErrorState, Skeleton } from "../../components/ui/States";
 import { cn, relativeTime } from "../../lib/format";
@@ -40,6 +45,7 @@ export function AuditRecordPage() {
   }
 
   const { record, neighbors, total } = detail.data;
+  const presence = asHumanPresence(record.human_presence);
 
   return (
     <Page
@@ -68,6 +74,8 @@ export function AuditRecordPage() {
         <div className="min-w-0 space-y-5">
           {verify.isError && <ErrorState message={verify.error.message} />}
           {verify.data !== undefined && <VerifyPanel result={verify.data} />}
+
+          {presence !== null && <HumanPresenceBadge presence={presence} />}
 
           <section>
             <SectionTitle>Chain neighborhood</SectionTitle>
